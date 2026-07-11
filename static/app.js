@@ -18,6 +18,9 @@ let state = {
 
 // Puzzles that need word input
 const WORD_PUZZLES = new Set(['crossword', 'word_search']);
+
+// Grosor de línea estándar único para todas las plantillas (KDP B&N)
+const STROKE_STD = 1.5;
 const CLUE_PUZZLES = new Set(['crossword']);
 
 // Size options per puzzle type
@@ -125,7 +128,7 @@ async function generatePuzzle() {
     puzzle_id:   state.selectedPuzzleId,
     style:       document.getElementById('style').value,
     difficulty:  document.getElementById('difficulty').value,
-    stroke_width: parseFloat(document.getElementById('strokeWidth').value),
+    stroke_width: STROKE_STD,
     size:        size,
     words:       document.getElementById('wordsInput').value,
     clues:       document.getElementById('cluesInput').value,
@@ -224,7 +227,7 @@ async function exportFile(format, which) {
     instructions: state.currentInstructions,
     book_size:    document.getElementById('bookSizeSelect').value,
     margin_type:  document.getElementById('marginType').value,
-    stroke_width: parseFloat(document.getElementById('strokeWidth').value),
+    stroke_width: STROKE_STD,
   };
 
   try {
@@ -260,7 +263,7 @@ async function savePattern() {
     name,
     base_puzzle:   state.selectedPuzzleId,
     style:         document.getElementById('style').value,
-    stroke_weight: parseFloat(document.getElementById('strokeWidth').value),
+    stroke_weight: STROKE_STD,
     difficulty:    document.getElementById('difficulty').value,
     saved_by:      'user',
   };
@@ -292,7 +295,7 @@ function addToBatch() {
     name:        state.selectedPuzzleName,
     style:       document.getElementById('style').value,
     difficulty:  document.getElementById('difficulty').value,
-    stroke_width: parseFloat(document.getElementById('strokeWidth').value),
+    stroke_width: STROKE_STD,
     size,
     words: document.getElementById('wordsInput').value,
     clues: document.getElementById('cluesInput').value,
