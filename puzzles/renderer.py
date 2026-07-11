@@ -77,27 +77,27 @@ def _iso_box(x, y, w, h, depth, fill, shade, stroke, sw):
 # ─── SUDOKU ──────────────────────────────────────────────────────────────────
 
 def render_sudoku_solution_table(puzzle, solution, size=9, is_letters=False):
-    """Renderiza solución manteniendo diseño original del puzzle.
-    - Valores faltantes (solución) en NEGRITA
-    - Valores que ya estaban: normales
-    - Sombreado en celdas pobladas
+    """Renderiza solución sobre la MISMA plantilla del juego.
+    - Casillas DADAS en el puzzle (pistas): sombreadas en gris, número normal.
+    - Casillas que faltaban (respuesta): fondo blanco, número en NEGRITA.
+    Así se distingue de un vistazo lo que era pista de lo que se resolvió.
     """
     cell = 48
     margin = 30
     W = margin * 2 + cell * size
     H = margin * 2 + cell * size
 
+    def _is_given(v):
+        return v not in (0, '', None)
+
     svg = _svg_header(W, H)
 
-    # Primera pasada: sombreado en celdas pobladas (solución completa)
+    # Primera pasada: sombrear SOLO las casillas dadas (pistas mostradas en el juego)
     for r in range(size):
         for c in range(size):
-            x = margin + c * cell
-            y = margin + r * cell
-            val = solution[r][c]
-
-            if val and val != 0:
-                # Sombreado gris en celdas con valores
+            if _is_given(puzzle[r][c]):
+                x = margin + c * cell
+                y = margin + r * cell
                 svg += f'<rect x="{x+1}" y="{y+1}" width="{cell-2}" height="{cell-2}" fill="#d9d9d9" stroke="none"/>\n'
 
     # Segunda pasada: grilla
@@ -105,24 +105,19 @@ def render_sudoku_solution_table(puzzle, solution, size=9, is_letters=False):
         for c in range(size):
             x = margin + c * cell
             y = margin + r * cell
-
-            # Celda
             svg += f'<rect x="{x}" y="{y}" width="{cell}" height="{cell}" fill="none" stroke="#666" stroke-width="0.5"/>\n'
 
-    # Tercera pasada: números (compara puzzle vs solución)
+    # Tercera pasada: números. Pista = normal; respuesta que faltaba = negrita.
     for r in range(size):
         for c in range(size):
+            solution_val = solution[r][c]
+            if solution_val in (0, '', None):
+                continue
             x = margin + c * cell
             y = margin + r * cell
-            puzzle_val = puzzle[r][c]
-            solution_val = solution[r][c]
-
-            # Detectar si este valor era desconocido en el puzzle (debe ir en negrita)
-            is_new = (puzzle_val == 0 or puzzle_val == '' or puzzle_val is None) and solution_val
-
-            if solution_val and solution_val != 0:
-                svg += _text(x + cell/2, y + cell/2, str(solution_val),
-                             'Arial', cell * 0.45, bold=is_new, color='#000')
+            is_answer = not _is_given(puzzle[r][c])
+            svg += _text(x + cell/2, y + cell/2, str(solution_val),
+                         'Arial', cell * 0.45, bold=is_answer, color='#000')
 
     # Bordes gruesos (cajas 3x3 para 9x9, 4x4 para 16x16, etc.)
     box_size = int(math.isqrt(size)) if size in (9, 16, 4, 25) else 3
