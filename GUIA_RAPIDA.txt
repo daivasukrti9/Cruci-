@@ -1,0 +1,62 @@
+﻿═══════════════════════════════════════════════════════════════
+  KDP PUZZLE GENERATOR — GUÍA RÁPIDA
+═══════════════════════════════════════════════════════════════
+
+📍 UBICACIÓN:
+   C:\Users\Maximiliano Marinero\Downloads\Apps\Cruci\
+
+🚀 INICIAR:
+   Opción 1: Doble clic en iniciar.bat
+   Opción 2: python313 app.py
+   
+   Luego abre: http://localhost:5000
+
+📊 TESTEAR PERFORMANCE:
+   python313 test_performance.py
+
+📝 DOCUMENTACIÓN:
+   • INICIO_RAPIDO.md ────────── Cómo iniciar app
+   • RESUMEN_EJECUTIVO.md ────── QUÉ HACER AHORA
+   • RECOMENDACIONES.md ──────── ANÁLISIS DETALLADO
+   • test_performance.py ─────── Script de testing
+
+🛠️ ARCHIVOS PRINCIPALES:
+   Backend:
+   ├─ app.py ───────────────────── API Flask
+   ├─ puzzles/sudoku.py ────────── Generador Sudoku
+   ├─ puzzles/crossword.py ─────── Crucigrama + Sopa
+   ├─ puzzles/kenken.py ────────── KenKen + Futoshiki
+   ├─ puzzles/maze.py ──────────── Laberintos
+   ├─ puzzles/logic_puzzles.py ─── Hashi, Akari, etc.
+   ├─ puzzles/renderer.py ─────── Renderizador SVG
+   └─ puzzles/exporter.py ─────── Exportador PDF
+
+   Frontend:
+   ├─ templates/index.html ─────── Interfaz web
+   ├─ static/style.css ────────── Estilos
+   └─ static/app.js ──────────── Lógica cliente
+
+   Configuración:
+   ├─ requirements.txt ────────── Dependencias
+   ├─ puzzles_patterns/catalog.json  Catálogo maestro
+   └─ iniciar.bat ────────────── Script inicio
+
+✅ ESTADO ACTUAL:
+   ✓ 14/16 puzzles funcionales
+   ✓ Velocidad promedio: 2.43s
+   ❌ Sudoku 16×16 y Jigsaw: timeout >30s
+   ❌ PDF export: error HTTP 500
+
+⚡ PRIORIDADES:
+   1. [5 min] Timeout sudoku 16×16/Jigsaw
+   2. [5 min] PDF export fallback
+   3. [30 min] Constraint propagation
+   4. [15 min] Caché de puzzles
+
+📞 SOPORTE:
+   Si algo falla:
+   1. Verifica que server está corriendo (ventana Python visible)
+   2. Recarga http://localhost:5000 (F5)
+   3. Lee RECOMENDACIONES.md para troubleshooting
+
+═══════════════════════════════════════════════════════════════

@@ -1,0 +1,74 @@
+{
+  "version": "1.0",
+  "categories": [
+    {
+      "id": "sudoku",
+      "label": "Variaciones del Sudoku",
+      "icon": "grid",
+      "puzzles": [
+        {"id":"sudoku_classic","name":"Sudoku Clásico (9×9)","sizes":[9],"needs_words":false},
+        {"id":"sudoku_16x16","name":"Sudoku 16×16","sizes":[16],"needs_words":false},
+        {"id":"sudoku_killer","name":"Sudoku Asesino","sizes":[9],"needs_words":false},
+        {"id":"sudoku_x","name":"Sudoku X (Diagonal)","sizes":[9],"needs_words":false},
+        {"id":"sudoku_letters","name":"Sudoku de Letras (A-I)","sizes":[9],"needs_words":false},
+        {"id":"sudoku_jigsaw","name":"Sudoku Rompecabezas (Jigsaw)","sizes":[9],"needs_words":false},
+        {"id":"sudoku_jigsaw_x","name":"Sudoku Jigsaw X","sizes":[9],"needs_words":false},
+        {"id":"sudoku_jigsaw_letters","name":"Sudoku Rompecabezas con X Letras","sizes":[9],"needs_words":false},
+        {"id":"sudoku_12x12","name":"Sudoku Rompecabezas 12×12","sizes":[12],"needs_words":false}
+      ]
+    },
+    {
+      "id": "arithmetic",
+      "label": "Aritmética y Lógica",
+      "icon": "calculator",
+      "puzzles": [
+        {"id":"kenken","name":"KenKen / Calcudoku","sizes":[3,4,5,6,7,8],"needs_words":false},
+        {"id":"futoshiki","name":"Futoshiki (Desigual)","sizes":[4,5,6,7],"needs_words":false},
+        {"id":"hitori","name":"Hitori (Individuales)","sizes":[5,6,7,8],"needs_words":false}
+      ]
+    },
+    {
+      "id": "connectivity",
+      "label": "Redes, Bucles y Puentes",
+      "icon": "share",
+      "puzzles": [
+        {"id":"hashi","name":"Hashi (Puentes)","sizes":[[5,5],[7,7],[9,9]],"needs_words":false},
+        {"id":"masyu","name":"Masyu (Perla)","sizes":[[6,6],[7,7],[9,9]],"needs_words":false},
+        {"id":"akari","name":"Akari (Iluminación)","sizes":[[6,6],[7,7],[9,9]],"needs_words":false},
+        {"id":"nurikabe","name":"Nurikabe","sizes":[[6,6],[7,7],[9,9]],"needs_words":false}
+      ]
+    },
+    {
+      "id": "words",
+      "label": "Crucigramas y Letras",
+      "icon": "type",
+      "puzzles": [
+        {"id":"crossword","name":"Crucigrama Clásico","sizes":[13,15,17,21],"needs_words":true,"needs_clues":true},
+        {"id":"word_search","name":"Sopa de Letras","sizes":[10,12,15,17,20],"needs_words":true}
+      ]
+    },
+    {
+      "id": "mazes",
+      "label": "Laberintos",
+      "icon": "map",
+      "puzzles": [
+        {"id":"maze_rect","name":"Laberinto Rectangular","sizes":[[10,10],[15,15],[20,20],[25,25]],"needs_words":false},
+        {"id":"maze_hex","name":"Laberinto Hexagonal","sizes":[[6,8],[8,10],[10,12]],"needs_words":false},
+        {"id":"maze_circular","name":"Laberinto Circular","sizes":[4,5,6,7,8],"needs_words":false},
+        {"id":"maze_triangle","name":"Laberinto Triangular","sizes":[8,10,12],"needs_words":false}
+      ]
+    }
+  ],
+  "visual_styles": [
+    {"id":"flat","name":"Plano Tradicional","description":"Cuadrícula limpia, líneas precisas, máximo contraste B&N."},
+    {"id":"isometric","name":"Isométrico 3D","description":"Perspectiva isométrica faux-3D con sombreado vectorial en escala de grises."},
+    {"id":"geometric","name":"Geométrico / Origami","description":"Líneas gruesas, tipografía bold, estética editorial contemporánea."}
+  ],
+  "book_sizes": [
+    {"id":"6x9","name":"6\" × 9\" (KDP Estándar)"},
+    {"id":"8.5x11","name":"8.5\" × 11\" (Letter)"},
+    {"id":"7x10","name":"7\" × 10\""},
+    {"id":"5x8","name":"5\" × 8\" (Bolsillo)"}
+  ],
+  "difficulties": ["easy","medium","hard"]
+}

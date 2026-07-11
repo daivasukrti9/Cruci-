@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KDP Puzzle Book Generator</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- ══ HEADER ══════════════════════════════════════════════════════════════ -->
+<header class="app-header">
+  <div class="header-inner">
+    <div class="logo">
+      <span class="logo-icon">▦</span>
+      <span class="logo-text">KDP <strong>Puzzle Generator</strong></span>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-outline" onclick="openBatchModal()">📚 Crear Libro Completo</button>
+      <a href="https://kdp.amazon.com" target="_blank" class="btn btn-ghost">KDP ↗</a>
+    </div>
+  </div>
+</header>
+
+<div class="app-layout">
+
+<!-- ══ SIDEBAR ════════════════════════════════════════════════════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-section">
+    <div class="section-label">TIPO DE PUZZLE</div>
+    <div class="puzzle-categories" id="puzzleTree"></div>
+  </div>
+</aside>
+
+<!-- ══ MAIN PANEL ═════════════════════════════════════════════════════════ -->
+<main class="main-panel">
+
+  <!-- Config bar -->
+  <div class="config-bar">
+    <div class="config-group">
+      <label>Dificultad</label>
+      <select id="difficulty">
+        <option value="easy">Fácil</option>
+        <option value="medium" selected>Media</option>
+        <option value="hard">Difícil</option>
+      </select>
+    </div>
+    <div class="config-group">
+      <label>Estilo Visual</label>
+      <select id="style">
+        <option value="flat">Plano Tradicional</option>
+        <option value="isometric">Isométrico 3D</option>
+        <option value="geometric">Geométrico / Origami</option>
+      </select>
+    </div>
+    <div class="config-group">
+      <label>Grosor línea (pt)</label>
+      <input type="range" id="strokeWidth" min="0.5" max="4" step="0.5" value="1.5"
+             oninput="document.getElementById('strokeVal').textContent=this.value">
+      <span id="strokeVal" class="range-val">1.5</span>
+    </div>
+    <div class="config-group" id="sizeGroup">
+      <label>Tamaño / Dimensión</label>
+      <select id="sizeSelect"></select>
+    </div>
+  </div>
+
+  <!-- Words input (shown for word puzzles) -->
+  <div class="words-panel" id="wordsPanel" style="display:none">
+    <div class="words-col">
+      <label class="field-label">Palabras (una por línea)</label>
+      <textarea id="wordsInput" placeholder="EJEMPLO&#10;PUZZLE&#10;LIBRO&#10;JUEGO&#10;AMAZON" rows="6"></textarea>
+    </div>
+    <div class="words-col" id="cluesCol" style="display:none">
+      <label class="field-label">Pistas / Definiciones (una por línea, mismo orden)</label>
+      <textarea id="cluesInput" placeholder="Capital de Francia&#10;Deporte acuático&#10;..." rows="6"></textarea>
+    </div>
+  </div>
+
+  <!-- Generate button -->
+  <div class="generate-bar">
+    <div class="selected-puzzle-name" id="selectedName">Selecciona un tipo de puzzle →</div>
+    <button class="btn btn-primary btn-generate" id="generateBtn" onclick="generatePuzzle()" disabled>
+      ⚡ Generar Puzzle
+    </button>
+  </div>
+
+  <!-- Preview area -->
+  <div class="preview-area">
+    <div class="preview-tabs">
+      <button class="tab-btn active" onclick="switchTab('puzzle',this)">🧩 Puzzle (Juego)</button>
+      <button class="tab-btn" onclick="switchTab('solution',this)">✅ Solución (Clave)</button>
+      <button class="tab-btn" id="cluesTabBtn" style="display:none" onclick="switchTab('clues',this)">📋 Pistas</button>
+    </div>
+
+    <div class="preview-toolbar">
+      <span class="preview-title" id="previewTitle">—</span>
+      <div class="preview-tools">
+        <button class="tool-btn" onclick="zoomPreview(-0.2)" title="Alejar">−</button>
+        <span class="zoom-val" id="zoomVal">100%</span>
+        <button class="tool-btn" onclick="zoomPreview(0.2)" title="Acercar">+</button>
+        <button class="tool-btn" onclick="resetZoom()" title="Restablecer">⊙</button>
+      </div>
+    </div>
+
+    <div class="preview-canvas" id="previewCanvas">
+      <div class="empty-state">
+        <div class="empty-icon">▦</div>
+        <div class="empty-text">Genera un puzzle para ver la vista previa aquí</div>
+      </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="instructions-box" id="instructionsBox" style="display:none">
+      <div class="instr-label">📌 INSTRUCCIONES PARA EL LECTOR</div>
+      <div class="instr-text" id="instructionsText"></div>
+    </div>
+  </div>
+
+  <!-- Export bar -->
+  <div class="export-bar" id="exportBar" style="display:none">
+    <div class="export-group">
+      <div class="export-label">Exportar puzzle/solución:</div>
+      <button class="btn btn-export" onclick="exportFile('svg','puzzle')">↓ SVG Puzzle</button>
+      <button class="btn btn-export" onclick="exportFile('svg','solution')">↓ SVG Solución</button>
+      <button class="btn btn-export" onclick="exportFile('png','puzzle')">↓ PNG 300dpi</button>
+    </div>
+    <div class="export-group">
+      <div class="export-label">Exportar libro KDP:</div>
+      <select id="bookSizeSelect">
+        <option value="6x9">6″ × 9″ (Estándar)</option>
+        <option value="8.5x11">8.5″ × 11″ (Letter)</option>
+        <option value="7x10">7″ × 10″</option>
+        <option value="5x8">5″ × 8″ (Bolsillo)</option>
+      </select>
+      <select id="marginType">
+        <option value="no_bleed">Sin sangrado</option>
+        <option value="bleed">Con sangrado (bleed)</option>
+      </select>
+      <button class="btn btn-primary" onclick="exportFile('pdf','both')">↓ PDF KDP Ready</button>
+    </div>
+    <div class="export-group">
+      <button class="btn btn-outline" onclick="savePattern()">💾 Guardar como Sub-Patrón</button>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<!-- ══ BATCH MODAL ═════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="batchOverlay" style="display:none" onclick="if(event.target===this)closeBatchModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>📚 Crear Libro Completo</h2>
+      <button class="modal-close" onclick="closeBatchModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="book-meta">
+        <label>Título del libro</label>
+        <input type="text" id="bookTitle" value="Mi Libro de Puzzles" class="input-full">
+        <label>Autor</label>
+        <input type="text" id="bookAuthor" placeholder="Tu nombre" class="input-full">
+        <label>Tamaño KDP</label>
+        <select id="batchBookSize" class="input-full">
+          <option value="6x9">6″ × 9″</option>
+          <option value="8.5x11">8.5″ × 11″</option>
+          <option value="7x10">7″ × 10″</option>
+        </select>
+      </div>
+      <div class="batch-list" id="batchList">
+        <div class="batch-empty">Añade puzzles al libro usando el botón de abajo.</div>
+      </div>
+      <button class="btn btn-outline w-full" onclick="addToBatch()">+ Añadir puzzle actual al libro</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeBatchModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="generateBatchPDF()">⚡ Generar PDF del Libro</button>
+    </div>
+  </div>
+</div>
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loadingOverlay" style="display:none">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loadingText">Generando puzzle...</div>
+  </div>
+</div>
+
+<script>
+// ── Data from Flask ──────────────────────────────────────────────────────────
+const CATALOG = {{ catalog | tojson }};
+</script>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "id": "sudoku_classic",
+  "name": "Sudoku Clásico (9×9)",
+  "category": "sudoku",
+  "topology": "orthogonal",
+  "default_size": 9,
+  "sizes": [9],
+  "style": "flat",
+  "stroke_weight": 1.5,
+  "description": "¡Un clásico es insuperable! Coloca los números del 1 al 9 sin repetir en filas, columnas ni cajas 3×3.",
+  "instructions": "Completa la cuadrícula de 9×9 colocando los números del 1 al 9 de modo que no se repitan en ninguna fila, columna ni en ninguna de las 9 cajas de 3×3.",
+  "visual_effects": ["flat", "isometric", "geometric"],
+  "kdp_note": "Efecto Isométrico Elevado disponible: cajas flotando a diferentes alturas en perspectiva isométrica con sombreado vectorial."
+}

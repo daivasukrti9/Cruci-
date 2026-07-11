@@ -1,0 +1,4 @@
+flask>=2.3
+reportlab>=4.0
+svgwrite>=1.4
+Pillow>=10.0

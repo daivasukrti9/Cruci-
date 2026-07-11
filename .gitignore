@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Generados por la app
+exports/*.pdf
+exports/*.png
+exports/*.svg
+
+# Logs y temporales
+*.log
+*.tmp
+
+# Config local de Claude Code (rutas/permits específicos de la máquina)
+.claude/settings.local.json
