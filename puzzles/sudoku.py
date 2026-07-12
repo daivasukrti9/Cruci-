@@ -2,6 +2,8 @@ import random
 import copy
 import math
 import time
+import os
+import json
 
 # Límite de iteraciones para evitar timeout en puzzles grandes
 # 16x16 necesita más iteraciones debido a espacio más grande
@@ -348,36 +350,55 @@ def generate_jigsaw(difficulty='medium', with_x=False, letters=False, size=9):
     else:
         box_w, box_h = 3, 3
 
-    # Buscar regiones irregulares (SIN rectángulos) tallándolas sobre soluciones
-    # PLANAS rápidas (las diagonales del Jigsaw X no afectan a la forma de las
-    # piezas, así que no se pagan aquí). Si una solución es "difícil", se regenera.
-    # Acotado por tiempo para no colgarse nunca.
     solution = None
     regions = None
-    fewest = 99
-    deadline = time.time() + 2.5
-    while time.time() < deadline and fewest > 0:
-        sol = [[0] * size for _ in range(size)]
-        _solve(sol, size, box_w, box_h)          # plana (rápida)
-        for _ in range(30):
-            if time.time() >= deadline:
-                break
-            cand = _carve_rainbow_regions(sol, size)
-            if cand is None:
-                continue
-            boxy = _count_boxy(cand, size)
-            if boxy >= fewest:
-                continue
-            if with_x:
-                # Jigsaw X: la región debe ADMITIR una solución con diagonales.
-                filled = _fill_jigsaw(size, cand, diags=True, max_iter=20000)
-                if filled is None:
+
+    # 0) Plantillas curadas (sin rectángulos garantizado) para los casos donde
+    #    generar en vivo es poco fiable: 12×12 y 9×9 Jigsaw X. Se elige una plantilla
+    #    + una simetría al azar (variedad) y se rellena con una solución nueva.
+    tmpl_key = ('jigsaw_x_9' if size == 9 and with_x
+                else 'jigsaw_9' if size == 9
+                else 'jigsaw_12' if size == 12 and not with_x else None)
+    templates = _load_jigsaw_templates().get(tmpl_key, []) if tmpl_key else []
+    for _ in range(10):
+        if not templates:
+            break
+        entry = random.choice(templates)
+        t = random.randrange(8)                       # simetría diédrica (variedad)
+        reg = _transform_regions(entry['regions'], size, t)
+        sol = _transform_regions(entry['solution'], size, t)   # misma transformación
+        if _count_boxy(reg, size) == 0 and _validate_jigsaw(sol, size, reg):
+            solution, regions = sol, reg
+            break
+
+    # 1) Sin plantilla disponible: tallar en vivo regiones SIN rectángulos sobre
+    #    soluciones PLANAS rápidas (bien para 9×9 plano y letras). Acotado por tiempo.
+    if solution is None:
+        fewest = 99
+        deadline = time.time() + 2.5
+        while time.time() < deadline and fewest > 0:
+            sol = [[0] * size for _ in range(size)]
+            _solve(sol, size, box_w, box_h)          # plana (rápida)
+            for _ in range(30):
+                if time.time() >= deadline:
+                    break
+                cand = _carve_rainbow_regions(sol, size)
+                if cand is None:
                     continue
-                fewest, regions, solution = boxy, cand, filled
-            else:
-                fewest, regions, solution = boxy, cand, sol
-            if boxy == 0:
-                break
+                boxy = _count_boxy(cand, size)
+                if boxy >= fewest:
+                    continue
+                if with_x:
+                    # Jigsaw X: la región debe ADMITIR una solución con diagonales.
+                    filled = _fill_jigsaw(size, cand, diags=True, max_iter=20000)
+                    if filled is None:
+                        continue
+                    fewest, regions, solution = boxy, cand, filled
+                else:
+                    fewest, regions, solution = boxy, cand, sol
+                if boxy == 0:
+                    break
+
     if solution is None or regions is None or not _validate_jigsaw(solution, size, regions):
         # Fallback seguro: cajas regulares como regiones.
         solution = [[0] * size for _ in range(size)]
@@ -401,6 +422,38 @@ def generate_jigsaw(difficulty='medium', with_x=False, letters=False, size=9):
         def to_l(g): return [[let[v-1] if v else '' for v in row] for row in g]
         return to_l(puzzle), to_l(solution), regions
     return puzzle, solution, regions
+
+
+_JIGSAW_TEMPLATES = None
+
+
+def _load_jigsaw_templates():
+    """Carga (una vez) las plantillas de regiones sin rectángulos cosechadas offline.
+    Devuelve {} si el archivo no existe."""
+    global _JIGSAW_TEMPLATES
+    if _JIGSAW_TEMPLATES is None:
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            'puzzles_patterns', 'jigsaw_templates.json')
+        try:
+            with open(path, encoding='utf-8') as f:
+                _JIGSAW_TEMPLATES = json.load(f)
+        except (OSError, ValueError):
+            _JIGSAW_TEMPLATES = {}
+    return _JIGSAW_TEMPLATES
+
+
+def _transform_regions(reg, size, t):
+    """Aplica una simetría del grupo diédrico (0..7) al mapa de regiones para dar
+    variedad. Las transformaciones rígidas preservan tamaño, contigüidad y la
+    propiedad de "sin rectángulos"; además, como el par de diagonales es invariante,
+    conservan la validez del Jigsaw X."""
+    m = [row[:] for row in reg]
+    if t >= 4:
+        m = [row[::-1] for row in m]      # reflejo horizontal
+        t -= 4
+    for _ in range(t):                    # t rotaciones de 90°
+        m = [[m[size - 1 - c][r] for c in range(size)] for r in range(size)]
+    return m
 
 
 def _fill_jigsaw(size, regions, diags=False, max_iter=200000):
