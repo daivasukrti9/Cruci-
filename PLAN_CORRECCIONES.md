@@ -19,11 +19,17 @@ Leyenda estado: ⬜ pendiente · 🟦 en progreso · ✅ hecho
   Nota: las soluciones de KenKen/Futoshiki/palabras/laberintos se ajustan en sus
   fases (6,7,13,14,15+) con sus casos especiales.
 
-## Feedback post-Fase B ✅ (commit 0a74d4e)
+## Feedback post-Fase B ✅ (commit 0a74d4e, d764716)
 - ✅ **Variedad infinita**: quitado el caché; cada "Generar" da un puzzle nuevo.
-- ✅ **Jigsaw evita pieza 3×3**: el 9×9 evita el cuadrado 3×3 casi siempre (búsqueda
-  acotada por tiempo). Limitación: el 12×12 suele conservar una pieza 3×4 (no es un
-  cuadrado 3×3) — revisitar si molesta.
+- ✅ **Jigsaw sin rectángulos (9×9 y letras)**: se rechaza TODO rectángulo (cuadrados
+  y barras). jigsaw 9×9 = 100% sin rectángulo, letras = 95%. (commit d764716)
+- ⚠️ **Jigsaw X (~40%) y 12×12 (~15%)**: PARCIAL. Generar piezas irregulares "gordas",
+  válidas y sin rectángulos es muy difícil aquí (X además debe cumplir diagonales;
+  12×12 tiene piezas de 12 celdas). Métodos probados sin éxito total: tallado greedy
+  (hace cajas), deformación por intercambios, crecimiento simultáneo, camino
+  hamiltoniano/backbite (da serpientes irresolubles). Pendiente: enfoque por
+  **plantillas curadas** (biblioteca de layouts válidos + simetrías) o aceptar
+  best-effort. Nunca se cuelga (presupuesto 2.5s).
 
 ## FASE B — Familia Sudoku ✅ (commit 5b94866)
 - ✅ **2** Asesino: jaulas con contorno punteado inset + suma; visibles en puzzle y
