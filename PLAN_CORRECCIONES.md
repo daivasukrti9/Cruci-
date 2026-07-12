@@ -11,12 +11,13 @@ Leyenda estado: ⬜ pendiente · 🟦 en progreso · ✅ hecho
 
 ---
 
-## FASE A — Global (menú + formato de soluciones)
-- ⬜ **1b** Quitar estilo "Geométrico/Origami" del menú.
-- ⬜ **1c** Quitar "Grosor de línea (pt)"; grosor estándar único.
-- ⬜ **1a+3** Soluciones sobre la MISMA plantilla del juego: sombrear solo las
-  casillas dadas (pistas), respuestas faltantes en negrita. (Corrige el sombreado
-  actual que marca todas las celdas.)
+## FASE A — Global (menú + formato de soluciones) ✅
+- ✅ **1b** Quitar estilo "Geométrico/Origami" del menú. (commit b4717b7)
+- ✅ **1c** Quitar "Grosor de línea (pt)"; grosor estándar único. (commit b4717b7)
+- ✅ **1a+3** Soluciones sobre la MISMA plantilla: sombrear solo pistas, respuestas
+  en negrita. Aplicado a familia Sudoku (clásico/16/X/letras). (commit 3c3353f)
+  Nota: las soluciones de KenKen/Futoshiki/palabras/laberintos se ajustan en sus
+  fases (6,7,13,14,15+) con sus casos especiales.
 
 ## FASE B — Familia Sudoku
 - ⬜ **2** Asesino: líneas de jaula claras (punteadas + suma en esquina). Solución

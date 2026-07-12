@@ -69,7 +69,7 @@ def test_classic_solution_valida(size, difficulty):
 
 # ─── Sudoku Jigsaw (regresión del bug de tupla) ──────────────────────────────
 
-@pytest.mark.parametrize("size", [9, 12, 16])
+@pytest.mark.parametrize("size", [9, 12])  # tamaños de jigsaw ofrecidos en la app
 def test_jigsaw_genera_sin_error(size):
     # No debe lanzar (el bug daba: unsupported operand // int y tuple)
     puzzle, solution, regions = sudoku.generate_jigsaw(difficulty="easy", size=size)
@@ -77,6 +77,34 @@ def test_jigsaw_genera_sin_error(size):
     assert _rows_ok(solution, size) and _cols_ok(solution, size), \
         f"Jigsaw {size}x{size}: fila o columna con repetidos"
     assert _puzzle_subset_of_solution(puzzle, solution)
+
+
+@pytest.mark.parametrize("size", [9, 12])
+def test_jigsaw_regiones_de_tamano_exacto(size):
+    """Cada pieza debe tener EXACTAMENTE `size` casillas y contener 1..size."""
+    puzzle, solution, regions = sudoku.generate_jigsaw(difficulty="medium", size=size)
+    # Contar casillas por región
+    counts = {}
+    vals = {}
+    for r in range(size):
+        for c in range(size):
+            rid = regions[r][c]
+            counts[rid] = counts.get(rid, 0) + 1
+            vals.setdefault(rid, []).append(solution[r][c])
+    assert len(counts) == size, f"Debe haber {size} regiones, hay {len(counts)}"
+    for rid, n in counts.items():
+        assert n == size, f"Región {rid} tiene {n} casillas (debe ser {size})"
+        assert sorted(vals[rid]) == list(range(1, size + 1)), \
+            f"Región {rid} no contiene 1..{size} sin repetir"
+
+
+def test_jigsaw_x_diagonales_validas():
+    """Jigsaw X: además de regiones, las diagonales no repiten."""
+    puzzle, solution, regions = sudoku.generate_jigsaw(difficulty="medium", with_x=True, size=9)
+    diag1 = [solution[i][i] for i in range(9)]
+    diag2 = [solution[i][8 - i] for i in range(9)]
+    assert sorted(diag1) == list(range(1, 10))
+    assert sorted(diag2) == list(range(1, 10))
 
 
 # ─── Sudoku X (diagonales) ───────────────────────────────────────────────────

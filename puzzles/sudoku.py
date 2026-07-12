@@ -101,14 +101,18 @@ def _propagate_constraints(grid, size, box_w, box_h, regions=None, diags=False):
         return True
 
 
-def _solve(grid, size, box_w, box_h, regions=None, diags=False, count=False, limit=2):
-    """Backtracking solver con constraint propagation e iteración límite."""
+def _solve(grid, size, box_w, box_h, regions=None, diags=False, count=False, limit=2,
+           max_iter=None):
+    """Backtracking solver con constraint propagation e iteración límite.
+    `max_iter` acota el esfuerzo por intento (útil en Jigsaw para descartar
+    layouts difíciles rápido y probar otro)."""
+    cap = max_iter if max_iter else MAX_ITERATIONS
     solutions = [0]
     iterations = [0]
 
     def backtrack(pos):
         iterations[0] += 1
-        if iterations[0] > MAX_ITERATIONS:
+        if iterations[0] > cap:
             return False if not count else True  # Timeout
 
         if pos == size * size:
@@ -334,32 +338,35 @@ def generate_killer(difficulty='medium'):
 
 
 def generate_jigsaw(difficulty='medium', with_x=False, letters=False, size=9):
-    """Sudoku Jigsaw with irregular regions."""
+    """Sudoku Jigsaw: regiones irregulares de EXACTAMENTE `size` casillas.
+    La solución respeta las regiones (no cajas regulares)."""
     if size == 12:
         box_w, box_h = 4, 3
     elif size == 16:
         box_w, box_h = 4, 4
     else:
         box_w, box_h = 3, 3
-    # Generate irregular regions by flood-fill starting from random seeds
-    regions = _generate_jigsaw_regions(size)
 
-    # Para Jigsaw, usar un Sudoku clásico como base y luego ignorar las regiones irregulares
-    # en la solución (solo usarlas para la presentación). Esto es mucho más rápido.
+    # 1) Solución válida con cajas regulares (+ diagonales si es Jigsaw X). Rápido.
     solution = [[0] * size for _ in range(size)]
-    _solve(solution, size, box_w, box_h, regions=None)  # Usar cajas regulares primero
+    _solve(solution, size, box_w, box_h, diags=with_x)
 
-    # Ahora tratamos las regiones irregulares como decorativo
+    # 2) Tallar sobre esa solución regiones contiguas de `size` casillas, cada una
+    #    con valores DISTINTOS. Así la solución ya es un jigsaw válido (no hay que
+    #    resolver nada más). Si no se logra, usar cajas regulares como regiones.
+    regions = _carve_rainbow_regions(solution, size)
+    if regions is None or not _validate_jigsaw(solution, size, regions):
+        regions = _regular_boxes_as_regions(size, box_w, box_h)
+
+    # Quitar celdas para formar el puzzle
     puzzle = copy.deepcopy(solution)
     clues = DIFFICULTY_CLUES.get(size, {}).get(difficulty, size * size // 3)
-    # Simplemente remover celdas sin validar contra regiones
     cells = [(r, c) for r in range(size) for c in range(size)]
     random.shuffle(cells)
     removed = 0
     for r, c in cells:
         if removed >= (size * size - clues):
             break
-        val = puzzle[r][c]
         puzzle[r][c] = 0
         removed += 1
 
@@ -370,61 +377,82 @@ def generate_jigsaw(difficulty='medium', with_x=False, letters=False, size=9):
     return puzzle, solution, regions
 
 
-def _generate_jigsaw_regions(size):
-    """Generate size irregular regions each containing size cells."""
-    regions = [[None] * size for _ in range(size)]
-    for region_id in range(size):
-        placed = 0
-        if region_id == 0:
-            start_r, start_c = 0, 0
-        else:
-            # Find an unassigned cell adjacent to already-assigned cells
-            candidates = []
-            for r in range(size):
-                for c in range(size):
-                    if regions[r][c] is None:
-                        for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:
-                            nr, nc = r+dr, c+dc
-                            if 0 <= nr < size and 0 <= nc < size and regions[nr][nc] is not None:
-                                candidates.append((r, c))
-                                break
-            if not candidates:
-                # Fallback: pick any unassigned
+def _carve_rainbow_regions(grid, size):
+    """Talla `size` regiones contiguas de EXACTAMENTE `size` casillas cada una,
+    donde cada región tiene valores DISTINTOS en `grid` (una de cada 1..size).
+    Como `grid` ya es válido en filas/columnas, el resultado es un jigsaw válido.
+    Crece región por región eligiendo la frontera con menos vecinos libres.
+    Devuelve las regiones o None si no lo logra."""
+    DIRS = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+    def free_neighbors(regions, r, c):
+        return sum(1 for dr, dc in DIRS
+                   if 0 <= r + dr < size and 0 <= c + dc < size
+                   and regions[r + dr][c + dc] == -1)
+
+    for _ in range(400):
+        regions = [[-1] * size for _ in range(size)]
+        ok = True
+        for rid in range(size):
+            unassigned = [(r, c) for r in range(size) for c in range(size)
+                          if regions[r][c] == -1]
+            if rid == 0:
+                seed = min(unassigned)
+            else:
+                adj = [(r, c) for (r, c) in unassigned
+                       if any(0 <= r + dr < size and 0 <= c + dc < size
+                              and regions[r + dr][c + dc] != -1 for dr, dc in DIRS)]
+                seed = random.choice(adj or unassigned)
+            regions[seed[0]][seed[1]] = rid
+            used = {grid[seed[0]][seed[1]]}
+            count = 1
+            while count < size:
+                frontier = set()
                 for r in range(size):
                     for c in range(size):
-                        if regions[r][c] is None:
-                            candidates.append((r, c))
-            if not candidates:
+                        if regions[r][c] == rid:
+                            for dr, dc in DIRS:
+                                nr, nc = r + dr, c + dc
+                                if (0 <= nr < size and 0 <= nc < size
+                                        and regions[nr][nc] == -1
+                                        and grid[nr][nc] not in used):
+                                    frontier.add((nr, nc))
+                if not frontier:
+                    ok = False
+                    break
+                m = min(free_neighbors(regions, r, c) for (r, c) in frontier)
+                nr, nc = random.choice([p for p in frontier
+                                        if free_neighbors(regions, p[0], p[1]) == m])
+                regions[nr][nc] = rid
+                used.add(grid[nr][nc])
+                count += 1
+            if not ok:
                 break
-            start_r, start_c = random.choice(candidates)
+        if ok and all(regions[r][c] != -1 for r in range(size) for c in range(size)):
+            return regions
+    return None
 
-        current = [(start_r, start_c)]
-        regions[start_r][start_c] = region_id
-        placed = 1
-        while placed < size:
-            candidates = []
-            for r, c in current:
-                for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:
-                    nr, nc = r+dr, c+dc
-                    if 0 <= nr < size and 0 <= nc < size and regions[nr][nc] is None:
-                        candidates.append((nr, nc))
-            if not candidates:
-                break
-            random.shuffle(candidates)
-            nr, nc = candidates[0]
-            regions[nr][nc] = region_id
-            current.append((nr, nc))
-            placed += 1
 
-    # Fill any remaining None with nearest region
+def _regular_boxes_as_regions(size, box_w, box_h):
+    """Regiones = cajas regulares (fallback siempre válido)."""
+    per_row = size // box_w
+    return [[(r // box_h) * per_row + (c // box_w) for c in range(size)]
+            for r in range(size)]
+
+
+def _validate_jigsaw(grid, size, regions):
+    """Cada fila, columna y REGIÓN contiene 1..size exactamente una vez."""
+    full = set(range(1, size + 1))
+    for r in range(size):
+        if set(grid[r]) != full:
+            return False
+    for c in range(size):
+        if set(grid[r][c] for r in range(size)) != full:
+            return False
+    region_vals = {}
     for r in range(size):
         for c in range(size):
-            if regions[r][c] is None:
-                for dr, dc in [(-1,0),(1,0),(0,-1),(0,1),(1,1),(-1,-1),(1,-1),(-1,1)]:
-                    nr, nc = r+dr, c+dc
-                    if 0 <= nr < size and 0 <= nc < size and regions[nr][nc] is not None:
-                        regions[r][c] = regions[nr][nc]
-                        break
-                if regions[r][c] is None:
-                    regions[r][c] = 0
-    return regions
+            region_vals.setdefault(regions[r][c], []).append(grid[r][c])
+    return all(len(v) == size and set(v) == full for v in region_vals.values())
+
+
