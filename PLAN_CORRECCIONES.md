@@ -23,13 +23,14 @@ Leyenda estado: ⬜ pendiente · 🟦 en progreso · ✅ hecho
 - ✅ **Variedad infinita**: quitado el caché; cada "Generar" da un puzzle nuevo.
 - ✅ **Jigsaw sin rectángulos (9×9 y letras)**: se rechaza TODO rectángulo (cuadrados
   y barras). jigsaw 9×9 = 100% sin rectángulo, letras = 95%. (commit d764716)
-- ⚠️ **Jigsaw X (~40%) y 12×12 (~15%)**: PARCIAL. Generar piezas irregulares "gordas",
-  válidas y sin rectángulos es muy difícil aquí (X además debe cumplir diagonales;
-  12×12 tiene piezas de 12 celdas). Métodos probados sin éxito total: tallado greedy
-  (hace cajas), deformación por intercambios, crecimiento simultáneo, camino
-  hamiltoniano/backbite (da serpientes irresolubles). Pendiente: enfoque por
-  **plantillas curadas** (biblioteca de layouts válidos + simetrías) o aceptar
-  best-effort. Nunca se cuelga (presupuesto 2.5s).
+- ✅ **Jigsaw sin rectángulos en TODAS las variantes (100%)** (commit a2ccaf2).
+  Solución: **plantillas curadas + simetrías** (como los libros comerciales).
+  `tools/harvest_jigsaw_templates.py` cosechó offline 12 mallas SIN rectángulos por
+  tipo (jigsaw_9, jigsaw_x_9, jigsaw_12) con su solución guardada →
+  `puzzles_patterns/jigsaw_templates.json`. En runtime: plantilla + simetría diédrica
+  (96 formas/tipo) → 9×9, X, letras y 12×12 = 100% irregular, válido, instantáneo.
+  Descartados (documentado): tallado greedy, border swapping (material del usuario;
+  sirve en 9×9 pero no escala a 12×12), backbite (serpientes irresolubles).
 
 ## FASE B — Familia Sudoku ✅ (commit 5b94866)
 - ✅ **2** Asesino: jaulas con contorno punteado inset + suma; visibles en puzzle y
