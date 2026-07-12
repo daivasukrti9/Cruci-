@@ -19,23 +19,17 @@ crucigramas, lógica) y los exporta como SVG/PNG/PDF listos para Amazon KDP.
 - `puzzles_patterns/catalog.json` — catálogo maestro de tipos de puzzle.
 - `tests/` — suite de reglas (red de seguridad contra regresiones).
 
-## Reglas de trabajo (IMPORTANTE)
+## Reglas de trabajo (específicas de este proyecto)
 
-1. **Modificación mínima invasiva.** Cambia solo las líneas que causan el problema.
-   No reescribas archivos ni funciones que ya funcionan.
-2. **Ediciones quirúrgicas.** Usa `Edit` (reemplazo exacto), nunca `Write` sobre un
-   archivo existente salvo que el usuario pida rehacerlo entero.
-3. **Análisis de impacto antes de editar.** Menciona qué otras funciones/puzzles
-   podrían verse afectados por el cambio.
-4. **Verifica con tests.** Antes y después de un cambio en `puzzles/`, corre la suite:
-   `python -m pytest -q`. Si tocas una familia, corre al menos su test.
-   Un cambio no está "listo" hasta que los tests pasan.
-5. **Trabajo arriesgado → rama.** Para refactors o cambios grandes:
-   `git checkout -b fix/<algo>`. Correcciones puntuales pueden ir directo, pero
-   **commitea un baseline antes** de empezar algo que pueda romper.
-6. **El usuario lidera la revisión de juegos.** No auditar los 16 por cuenta propia
+Las reglas generales (edición mínima invasiva, Git como red, análisis de impacto,
+idioma) están en el `CLAUDE.md` global. Aquí solo lo propio de Cruci:
+
+1. **Tests con pytest.** Antes y después de un cambio en `puzzles/`, corre:
+   `python -m pytest`. Si tocas una familia de puzzle, corre al menos su test.
+   Baseline en git = commit `95eebab` (estado funcional de partida).
+2. **El usuario lidera la revisión de juegos.** No auditar los 16 por cuenta propia
    ni "mejorar" lo que no se pidió. Esperar el reporte concreto y corregir ese punto.
-7. **Idioma:** responder siempre en español.
+3. **Reiniciar el servidor** tras editar código de puzzles para que tome los cambios.
 
 ## Reglas que la app DEBE cumplir (invariantes)
 

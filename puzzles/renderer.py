@@ -53,6 +53,11 @@ def _text(x, y, content, font, size, bold=False, color='#000000', anchor='middle
             f'text-anchor="{anchor}" dominant-baseline="central">{content}</text>\n')
 
 
+def _dash(x1, y1, x2, y2, color, sw=1.4):
+    return (f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" '
+            f'stroke="{color}" stroke-width="{sw}" stroke-dasharray="4,3"/>\n')
+
+
 def _iso_box(x, y, w, h, depth, fill, shade, stroke, sw):
     """Draw an isometric-style box (flat top with right and bottom faces)."""
     svg = ''
@@ -76,90 +81,21 @@ def _iso_box(x, y, w, h, depth, fill, shade, stroke, sw):
 
 # ─── SUDOKU ──────────────────────────────────────────────────────────────────
 
-def render_sudoku_solution_table(puzzle, solution, size=9, is_letters=False):
-    """Renderiza solución manteniendo diseño original del puzzle.
-    - Valores faltantes (solución) en NEGRITA
-    - Valores que ya estaban: normales
-    - Sombreado en celdas pobladas
-    """
-    cell = 48
-    margin = 30
-    W = margin * 2 + cell * size
-    H = margin * 2 + cell * size
-
-    svg = _svg_header(W, H)
-
-    # Primera pasada: sombreado en celdas pobladas (solución completa)
-    for r in range(size):
-        for c in range(size):
-            x = margin + c * cell
-            y = margin + r * cell
-            val = solution[r][c]
-
-            if val and val != 0:
-                # Sombreado gris en celdas con valores
-                svg += f'<rect x="{x+1}" y="{y+1}" width="{cell-2}" height="{cell-2}" fill="#d9d9d9" stroke="none"/>\n'
-
-    # Segunda pasada: grilla
-    for r in range(size):
-        for c in range(size):
-            x = margin + c * cell
-            y = margin + r * cell
-
-            # Celda
-            svg += f'<rect x="{x}" y="{y}" width="{cell}" height="{cell}" fill="none" stroke="#666" stroke-width="0.5"/>\n'
-
-    # Tercera pasada: números (compara puzzle vs solución)
-    for r in range(size):
-        for c in range(size):
-            x = margin + c * cell
-            y = margin + r * cell
-            puzzle_val = puzzle[r][c]
-            solution_val = solution[r][c]
-
-            # Detectar si este valor era desconocido en el puzzle (debe ir en negrita)
-            is_new = (puzzle_val == 0 or puzzle_val == '' or puzzle_val is None) and solution_val
-
-            if solution_val and solution_val != 0:
-                svg += _text(x + cell/2, y + cell/2, str(solution_val),
-                             'Arial', cell * 0.45, bold=is_new, color='#000')
-
-    # Bordes gruesos (cajas 3x3 para 9x9, 4x4 para 16x16, etc.)
-    box_size = int(math.isqrt(size)) if size in (9, 16, 4, 25) else 3
-    box_h = 3 if size == 12 else box_size
-    box_w = 4 if size == 12 else box_size
-
-    bsw = 2.5
-    for i in range(size + 1):
-        thick = (i % box_h == 0) or (i % box_w == 0)
-        sw = bsw if thick else 0.5
-        # Horizontal
-        svg += (f'<line x1="{margin}" y1="{margin + i*cell}" '
-                f'x2="{margin + size*cell}" y2="{margin + i*cell}" '
-                f'stroke="#000" stroke-width="{sw}"/>\n')
-        # Vertical
-        svg += (f'<line x1="{margin + i*cell}" y1="{margin}" '
-                f'x2="{margin + i*cell}" y2="{margin + size*cell}" '
-                f'stroke="#000" stroke-width="{sw}"/>\n')
-
-    # Título
-    svg += f'<text x="{W/2}" y="18" font-family="Arial" font-size="13" font-weight="bold" text-anchor="middle" fill="#333">SOLUCIÓN</text>\n'
-
-    svg += _svg_footer()
-    return svg
-
-
 def render_sudoku(puzzle, solution, size=9, style='flat', stroke_width=1.5,
                   show_solution=False, regions=None, diagonals=False,
                   cages=None, is_letters=False):
     """
-    Render a Sudoku puzzle (or solution) as SVG string.
-    puzzle/solution: 2D list, 0 or '' = empty.
-    """
-    # Si es solución, mantener diseño original con valores nuevos en negrita
-    if show_solution:
-        return render_sudoku_solution_table(puzzle, solution, size, is_letters)
+    Renderiza un Sudoku (puzzle o solución) como SVG.
 
+    La solución usa la MISMA plantilla que el puzzle (jaulas, regiones, diagonales);
+    solo cambia qué números se muestran:
+      - puzzle:   solo las pistas dadas.
+      - solución: todos los números; las respuestas que faltaban van en NEGRITA.
+    Sombreado por variante:
+      - Sudoku X (diagonals): se sombrean solo las dos diagonales.
+      - Asesino (cages):      sin sombreado.
+      - resto:                se sombrean las casillas dadas (pistas).
+    """
     st = {**STYLES.get(style, STYLES['flat']), 'stroke_width': stroke_width}
     cell = 48  # cell size px
     margin = 30
@@ -174,16 +110,24 @@ def render_sudoku(puzzle, solution, size=9, style='flat', stroke_width=1.5,
 
     svg = _svg_header(W, H)
 
-    grid = puzzle
+    SHADE = '#d9d9d9'
 
-    # Draw cells
+    def _is_given(r, c):
+        return puzzle[r][c] not in (0, '', None)
+
+    def _shaded(r, c):
+        if diagonals:                 # Sudoku X: resaltar solo las diagonales
+            return (r == c) or (r + c == size - 1)
+        if cages:                     # Asesino: sin sombreado
+            return False
+        return _is_given(r, c)        # resto: resaltar las pistas dadas
+
+    # Celdas: fondo (sombreado por variante) + número
     for r in range(size):
         for c in range(size):
             x = margin + c * cell
             y = margin + r * cell
-            val = grid[r][c]
-            is_given = (puzzle[r][c] != 0 and puzzle[r][c] != '')
-            fill = st['fill_clue'] if (is_given and not show_solution) else st['fill_empty']
+            fill = SHADE if _shaded(r, c) else st['fill_empty']
 
             if st['iso']:
                 svg += _iso_box(x, y, cell, cell, depth // 2,
@@ -191,8 +135,13 @@ def render_sudoku(puzzle, solution, size=9, style='flat', stroke_width=1.5,
             else:
                 svg += _rect(x, y, cell, cell, fill, st['stroke'], st['stroke_width'])
 
-            if val and val != 0:
-                bold = show_solution and not is_given
+            if show_solution:
+                val = solution[r][c]
+                bold = not _is_given(r, c)   # lo que faltaba va en negrita
+            else:
+                val = puzzle[r][c]
+                bold = False
+            if val not in (0, '', None):
                 svg += _text(x + cell/2, y + cell/2, str(val),
                              st['font_bold'] if bold else st['font'],
                              cell * 0.45, bold=bold)
@@ -200,8 +149,8 @@ def render_sudoku(puzzle, solution, size=9, style='flat', stroke_width=1.5,
     # Draw box borders (thicker)
     bsw = st['stroke_width'] * 2.5
     for i in range(size + 1):
-        thick_r = (i % box_h == 0) if regions is None else False
-        thick_c = (i % box_w == 0) if regions is None else False
+        thick_r = (i % box_h == 0) if regions is None else (i in (0, size))
+        thick_c = (i % box_w == 0) if regions is None else (i in (0, size))
         sw_r = bsw if thick_r else st['stroke_width']
         sw_c = bsw if thick_c else st['stroke_width']
         # Horizontal line
@@ -231,42 +180,30 @@ def render_sudoku(puzzle, solution, size=9, style='flat', stroke_width=1.5,
                             f'x2="{margin+(c+1)*cell}" y2="{y1}" '
                             f'stroke="{st["stroke"]}" stroke-width="{bsw}"/>\n')
 
-    # Draw Killer cages
+    # Jaulas del Asesino: contorno punteado INSET (dentro de las celdas, bien visible)
     if cages:
+        inset = 4
         for cage in cages:
             cage_cells = set(map(tuple, cage['cells']))
             for (r, c) in cage_cells:
                 x = margin + c * cell
                 y = margin + r * cell
-                # Draw dashed borders where adjacent cell is NOT in cage
-                for dr, dc, x1r, y1r, x2r, y2r in [
-                    (-1, 0, 0, 0, cell, 0),
-                    (1,  0, 0, cell, cell, cell),
-                    (0, -1, 0, 0, 0, cell),
-                    (0,  1, cell, 0, cell, cell),
-                ]:
-                    if (r+dr, c+dc) not in cage_cells:
-                        svg += (f'<line x1="{x+x1r}" y1="{y+y1r}" '
-                                f'x2="{x+x2r}" y2="{y+y2r}" '
-                                f'stroke="{st["stroke"]}" stroke-width="1.5" '
-                                f'stroke-dasharray="4,3"/>\n')
-            # Cage sum label in top-left cell
+                x0, y0 = x + inset, y + inset
+                x1, y1 = x + cell - inset, y + cell - inset
+                if (r-1, c) not in cage_cells:
+                    svg += _dash(x0, y0, x1, y0, st['stroke'])
+                if (r+1, c) not in cage_cells:
+                    svg += _dash(x0, y1, x1, y1, st['stroke'])
+                if (r, c-1) not in cage_cells:
+                    svg += _dash(x0, y0, x0, y1, st['stroke'])
+                if (r, c+1) not in cage_cells:
+                    svg += _dash(x1, y0, x1, y1, st['stroke'])
+            # Etiqueta de la suma en la celda superior-izquierda de la jaula
             min_cell = min(cage['cells'], key=lambda p: (p[0], p[1]))
-            lx = margin + min_cell[1] * cell + 3
-            ly = margin + min_cell[0] * cell + 10
+            lx = margin + min_cell[1] * cell + inset + 1
+            ly = margin + min_cell[0] * cell + inset + 8
             svg += (f'<text x="{lx}" y="{ly}" font-family="Arial" '
-                    f'font-size="9" font-weight="bold" fill="#000">{cage["sum"]}</text>\n')
-
-    # Diagonals for Sudoku X
-    if diagonals:
-        for i in range(size):
-            svg += (f'<line x1="{margin+i*cell+2}" y1="{margin+i*cell+2}" '
-                    f'x2="{margin+(i+1)*cell-2}" y2="{margin+(i+1)*cell-2}" '
-                    f'stroke="#999" stroke-width="0.5"/>\n')
-            j = size - 1 - i
-            svg += (f'<line x1="{margin+j*cell+cell-2}" y1="{margin+i*cell+2}" '
-                    f'x2="{margin+j*cell+2}" y2="{margin+(i+1)*cell-2}" '
-                    f'stroke="#999" stroke-width="0.5"/>\n')
+                    f'font-size="10" font-weight="bold" fill="#000">{cage["sum"]}</text>\n')
 
     svg += _svg_footer()
     return svg
