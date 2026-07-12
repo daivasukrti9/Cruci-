@@ -11,9 +11,6 @@ app.config['EXPORTS_DIR'] = os.path.join(os.path.dirname(__file__), 'exports')
 app.config['PATTERNS_DIR'] = os.path.join(os.path.dirname(__file__), 'puzzles_patterns')
 os.makedirs(app.config['EXPORTS_DIR'], exist_ok=True)
 
-# Caché de puzzles generados (últimos 20)
-PUZZLE_CACHE = {}
-
 # ─── Catalog ─────────────────────────────────────────────────────────────────
 
 def load_catalog():
@@ -55,21 +52,9 @@ def api_generate():
 
 
 def _generate(puzzle_id, style, difficulty, stroke_w, size_param, words, clues):
-    from puzzles import renderer as R
-
-    # Generar clave de caché
-    cache_key = f"{puzzle_id}_{size_param}_{difficulty}_{style}"
-    if cache_key in PUZZLE_CACHE:
-        return PUZZLE_CACHE[cache_key]
-
-    result = _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, clues)
-
-    # Guardar en caché (máximo 20 entries)
-    if len(PUZZLE_CACHE) >= 20:
-        PUZZLE_CACHE.pop(next(iter(PUZZLE_CACHE)))  # Eliminar el primero
-    PUZZLE_CACHE[cache_key] = result
-
-    return result
+    # Sin caché: cada generación produce un puzzle NUEVO (variedad infinita).
+    # La generación ya es rápida y la exportación usa el SVG que el front ya tiene.
+    return _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, clues)
 
 
 def _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, clues):

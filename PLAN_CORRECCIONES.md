@@ -19,11 +19,14 @@ Leyenda estado: ⬜ pendiente · 🟦 en progreso · ✅ hecho
   Nota: las soluciones de KenKen/Futoshiki/palabras/laberintos se ajustan en sus
   fases (6,7,13,14,15+) con sus casos especiales.
 
-## FASE B — Familia Sudoku
-- ⬜ **2** Asesino: líneas de jaula claras (punteadas + suma en esquina). Solución
-  SIN sombreado, doble cuadrícula (borde 9×9 + límites de jaula).
-- ⬜ **4** Jigsaw y Jigsaw X: definir bien cuadrícula 9 vs regiones; reflejar en solución.
-- ⬜ **5** Jigsaw letras y Jigsaw 12×12: corregir plantilla + instrucciones + solución.
+## FASE B — Familia Sudoku ✅ (commit 5b94866)
+- ✅ **2** Asesino: jaulas con contorno punteado inset + suma; visibles en puzzle y
+  solución. Solución sin sombreado. Plantilla trasladada a la solución.
+- ✅ **2b (X)** Sudoku X: se sombrean solo las diagonales (sin líneas X trazadas);
+  solución resalta las respuestas.
+- ✅ **4/5** Jigsaw, Jigsaw X, letras y 12×12: regiones irregulares de EXACTAMENTE
+  `size` casillas (tallado arcoíris sobre solución válida); solución sobre la misma
+  plantilla con regiones. Cuadrícula interna fina + regiones/borde gruesos.
 
 ## FASE C — Lógica / aritmética
 - ⬜ **6** KenKen: jaula de cálculo con línea gris interior (más fina que borde negro).

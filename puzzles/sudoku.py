@@ -1,6 +1,7 @@
 import random
 import copy
 import math
+import time
 
 # Límite de iteraciones para evitar timeout en puzzles grandes
 # 16x16 necesita más iteraciones debido a espacio más grande
@@ -352,9 +353,21 @@ def generate_jigsaw(difficulty='medium', with_x=False, letters=False, size=9):
     _solve(solution, size, box_w, box_h, diags=with_x)
 
     # 2) Tallar sobre esa solución regiones contiguas de `size` casillas, cada una
-    #    con valores DISTINTOS. Así la solución ya es un jigsaw válido (no hay que
-    #    resolver nada más). Si no se logra, usar cajas regulares como regiones.
-    regions = _carve_rainbow_regions(solution, size)
+    #    con valores DISTINTOS (la solución ya es un jigsaw válido: no hay que
+    #    resolver nada más). Se generan varias y se elige la que tenga MENOS piezas
+    #    "de caja" (idealmente 0); así se cumple la regla de solo piezas irregulares
+    #    sin colgarse buscando una partición perfecta en 12×12.
+    regions = None
+    fewest = 99
+    deadline = time.time() + 1.5   # presupuesto: nunca se cuelga
+    while time.time() < deadline:
+        cand = _carve_rainbow_regions(solution, size)
+        if cand is not None:
+            boxy = _count_boxy(cand, size)
+            if boxy < fewest:
+                fewest, regions = boxy, cand
+            if boxy == 0:
+                break
     if regions is None or not _validate_jigsaw(solution, size, regions):
         regions = _regular_boxes_as_regions(size, box_w, box_h)
 
@@ -377,7 +390,27 @@ def generate_jigsaw(difficulty='medium', with_x=False, letters=False, size=9):
     return puzzle, solution, regions
 
 
-def _carve_rainbow_regions(grid, size):
+def _is_boxy_rect(cells, box_min=3):
+    """True si las casillas forman un rectángulo lleno "de caja" (dimensión mínima
+    >= box_min): el 3x3 del Sudoku o un 3x4/4x3. Las barras finas (1xN, 2xN) no
+    cuentan como caja."""
+    rs = [r for r, c in cells]
+    cs = [c for r, c in cells]
+    h = max(rs) - min(rs) + 1
+    w = max(cs) - min(cs) + 1
+    return h * w == len(cells) and min(h, w) >= box_min
+
+
+def _count_boxy(regions, size):
+    """Número de piezas con forma de caja (3x3, 3x4...) en la partición."""
+    cells_by_rid = {}
+    for r in range(size):
+        for c in range(size):
+            cells_by_rid.setdefault(regions[r][c], []).append((r, c))
+    return sum(1 for cs in cells_by_rid.values() if _is_boxy_rect(cs))
+
+
+def _carve_rainbow_regions(grid, size, attempts=400):
     """Talla `size` regiones contiguas de EXACTAMENTE `size` casillas cada una,
     donde cada región tiene valores DISTINTOS en `grid` (una de cada 1..size).
     Como `grid` ya es válido en filas/columnas, el resultado es un jigsaw válido.
@@ -390,7 +423,7 @@ def _carve_rainbow_regions(grid, size):
                    if 0 <= r + dr < size and 0 <= c + dc < size
                    and regions[r + dr][c + dc] == -1)
 
-    for _ in range(400):
+    for _ in range(attempts):
         regions = [[-1] * size for _ in range(size)]
         ok = True
         for rid in range(size):

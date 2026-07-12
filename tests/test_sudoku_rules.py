@@ -98,6 +98,26 @@ def test_jigsaw_regiones_de_tamano_exacto(size):
             f"Región {rid} no contiene 1..{size} sin repetir"
 
 
+def test_jigsaw_9_evita_pieza_3x3():
+    """Regla del usuario: el jigsaw 9x9 evita la pieza cuadrada 3x3 la gran
+    mayoría de las veces (búsqueda acotada por tiempo, no garantía absoluta)."""
+    limpios = sum(1 for _ in range(6)
+                  if sudoku._count_boxy(sudoku.generate_jigsaw(size=9)[2], 9) == 0)
+    assert limpios >= 4, f"Solo {limpios}/6 jigsaw 9x9 sin pieza 3x3"
+
+
+def test_jigsaw_genera_formas_distintas():
+    """Dos generaciones seguidas no deben dar exactamente las mismas regiones."""
+    _, _, reg1 = sudoku.generate_jigsaw(difficulty="medium", size=9)
+    distintas = False
+    for _ in range(5):
+        _, _, reg2 = sudoku.generate_jigsaw(difficulty="medium", size=9)
+        if reg2 != reg1:
+            distintas = True
+            break
+    assert distintas, "El generador devuelve siempre la misma forma"
+
+
 def test_jigsaw_x_diagonales_validas():
     """Jigsaw X: además de regiones, las diagonales no repiten."""
     puzzle, solution, regions = sudoku.generate_jigsaw(difficulty="medium", with_x=True, size=9)
