@@ -348,27 +348,40 @@ def generate_jigsaw(difficulty='medium', with_x=False, letters=False, size=9):
     else:
         box_w, box_h = 3, 3
 
-    # 1) Solución válida con cajas regulares (+ diagonales si es Jigsaw X). Rápido.
-    solution = [[0] * size for _ in range(size)]
-    _solve(solution, size, box_w, box_h, diags=with_x)
-
-    # 2) Tallar sobre esa solución regiones contiguas de `size` casillas, cada una
-    #    con valores DISTINTOS (la solución ya es un jigsaw válido: no hay que
-    #    resolver nada más). Se generan varias y se elige la que tenga MENOS piezas
-    #    "de caja" (idealmente 0); así se cumple la regla de solo piezas irregulares
-    #    sin colgarse buscando una partición perfecta en 12×12.
+    # Buscar regiones irregulares (SIN rectángulos) tallándolas sobre soluciones
+    # PLANAS rápidas (las diagonales del Jigsaw X no afectan a la forma de las
+    # piezas, así que no se pagan aquí). Si una solución es "difícil", se regenera.
+    # Acotado por tiempo para no colgarse nunca.
+    solution = None
     regions = None
     fewest = 99
-    deadline = time.time() + 1.5   # presupuesto: nunca se cuelga
-    while time.time() < deadline:
-        cand = _carve_rainbow_regions(solution, size)
-        if cand is not None:
+    deadline = time.time() + 2.5
+    while time.time() < deadline and fewest > 0:
+        sol = [[0] * size for _ in range(size)]
+        _solve(sol, size, box_w, box_h)          # plana (rápida)
+        for _ in range(30):
+            if time.time() >= deadline:
+                break
+            cand = _carve_rainbow_regions(sol, size)
+            if cand is None:
+                continue
             boxy = _count_boxy(cand, size)
-            if boxy < fewest:
-                fewest, regions = boxy, cand
+            if boxy >= fewest:
+                continue
+            if with_x:
+                # Jigsaw X: la región debe ADMITIR una solución con diagonales.
+                filled = _fill_jigsaw(size, cand, diags=True, max_iter=20000)
+                if filled is None:
+                    continue
+                fewest, regions, solution = boxy, cand, filled
+            else:
+                fewest, regions, solution = boxy, cand, sol
             if boxy == 0:
                 break
-    if regions is None or not _validate_jigsaw(solution, size, regions):
+    if solution is None or regions is None or not _validate_jigsaw(solution, size, regions):
+        # Fallback seguro: cajas regulares como regiones.
+        solution = [[0] * size for _ in range(size)]
+        _solve(solution, size, box_w, box_h, diags=with_x)
         regions = _regular_boxes_as_regions(size, box_w, box_h)
 
     # Quitar celdas para formar el puzzle
@@ -390,10 +403,72 @@ def generate_jigsaw(difficulty='medium', with_x=False, letters=False, size=9):
     return puzzle, solution, regions
 
 
-def _is_boxy_rect(cells, box_min=3):
-    """True si las casillas forman un rectángulo lleno "de caja" (dimensión mínima
-    >= box_min): el 3x3 del Sudoku o un 3x4/4x3. Las barras finas (1xN, 2xN) no
-    cuentan como caja."""
+def _fill_jigsaw(size, regions, diags=False, max_iter=200000):
+    """Rellena una cuadrícula válida para las regiones dadas usando MRV (elige la
+    casilla con menos candidatos). Devuelve la grilla o None. Se usa para Jigsaw X,
+    donde la solución debe cumplir además las dos diagonales."""
+    grid = [[0] * size for _ in range(size)]
+    rows = [set() for _ in range(size)]
+    cols = [set() for _ in range(size)]
+    reg = {}
+    diag1, diag2 = set(), set()
+    iters = [0]
+
+    def cands(r, c):
+        used = rows[r] | cols[c] | reg.setdefault(regions[r][c], set())
+        if diags:
+            if r == c:
+                used = used | diag1
+            if r + c == size - 1:
+                used = used | diag2
+        return [v for v in range(1, size + 1) if v not in used]
+
+    def put(r, c, v, add):
+        for s in (rows[r], cols[c], reg[regions[r][c]]):
+            s.add(v) if add else s.discard(v)
+        if diags:
+            if r == c:
+                diag1.add(v) if add else diag1.discard(v)
+            if r + c == size - 1:
+                diag2.add(v) if add else diag2.discard(v)
+
+    def solve():
+        iters[0] += 1
+        if iters[0] > max_iter:
+            return False
+        best, best_c = None, None
+        for r in range(size):
+            for c in range(size):
+                if grid[r][c] == 0:
+                    cc = cands(r, c)
+                    if not cc:
+                        return False
+                    if best_c is None or len(cc) < len(best_c):
+                        best, best_c = (r, c), cc
+                        if len(cc) == 1:
+                            break
+            if best_c is not None and len(best_c) == 1:
+                break
+        if best is None:
+            return True
+        r, c = best
+        random.shuffle(best_c)
+        for v in best_c:
+            grid[r][c] = v
+            put(r, c, v, True)
+            if solve():
+                return True
+            put(r, c, v, False)
+            grid[r][c] = 0
+        return False
+
+    return grid if solve() else None
+
+
+def _is_boxy_rect(cells, box_min=1):
+    """True si las casillas forman un rectángulo lleno. Con box_min=1 cuenta
+    cualquier rectángulo (3x3, 3x4, y también barras 1xN/2xN), es decir todo lo
+    que NO parezca una pieza de rompecabezas irregular."""
     rs = [r for r, c in cells]
     cs = [c for r, c in cells]
     h = max(rs) - min(rs) + 1
