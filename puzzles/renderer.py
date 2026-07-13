@@ -58,6 +58,12 @@ def _dash(x1, y1, x2, y2, color, sw=1.4):
             f'stroke="{color}" stroke-width="{sw}" stroke-dasharray="4,3"/>\n')
 
 
+def _cage_line(x1, y1, x2, y2, color='#888888', sw=1.0):
+    """Línea gris fina para marcar jaulas de cálculo (más delgada que el borde negro)."""
+    return (f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" '
+            f'stroke="{color}" stroke-width="{sw}"/>\n')
+
+
 def _iso_box(x, y, w, h, depth, fill, shade, stroke, sw):
     """Draw an isometric-style box (flat top with right and bottom faces)."""
     svg = ''
@@ -303,6 +309,9 @@ def render_word_search(grid, solution_grid, placed_words, word_positions,
 
 def render_kenken(puzzle, solution, cages, size, style='flat', stroke_width=1.5,
                   show_solution=False):
+    """KenKen sobre la MISMA plantilla. Las jaulas de cálculo se marcan con una
+    línea GRIS fina (más delgada que el borde negro de las celdas), hacia adentro.
+    La solución muestra todos los números sobre esa misma plantilla."""
     st = {**STYLES.get(style, STYLES['flat']), 'stroke_width': stroke_width}
     cell = 60
     margin = 30
@@ -310,66 +319,42 @@ def render_kenken(puzzle, solution, cages, size, style='flat', stroke_width=1.5,
     H = margin * 2 + cell * size
     svg = _svg_header(W, H)
 
-    # Primera pasada: sombreado en celdas pobladas (solución completa)
-    if show_solution:
-        for r in range(size):
-            for c in range(size):
-                x = margin + c * cell
-                y = margin + r * cell
-                svg += _rect(x, y, cell, cell, '#d9d9d9', 'none', 0)
-
-    # Segunda pasada: celdas y números
+    # Celdas (blanco, borde negro) + números (en la solución todos son respuesta)
     for r in range(size):
         for c in range(size):
             x = margin + c * cell
             y = margin + r * cell
+            svg += _rect(x, y, cell, cell, st['fill_empty'], st['stroke'], st['stroke_width'])
+            val = solution[r][c] if show_solution else puzzle[r][c]
+            if val:
+                svg += _text(x + cell / 2, y + cell / 2 + 2, str(val),
+                             st['font'], cell * 0.45, bold=show_solution)
 
-            if show_solution:
-                svg += _rect(x, y, cell, cell, '#d9d9d9', st['stroke'], st['stroke_width'])
-                val = solution[r][c]
-                is_new = (puzzle[r][c] == 0 or puzzle[r][c] == '') and val
-                if val:
-                    svg += _text(x + cell/2, y + cell/2 + 2, str(val),
-                                 st['font'], cell * 0.45, bold=is_new)
-            else:
-                svg += _rect(x, y, cell, cell, st['fill_empty'], st['stroke'], st['stroke_width'])
-                val = puzzle[r][c]
-                if val:
-                    svg += _text(x + cell/2, y + cell/2 + 2, str(val),
-                                 st['font'], cell * 0.45, bold=False)
+    # Borde externo negro grueso
+    svg += _rect(margin, margin, cell * size, cell * size, 'none', st['stroke'], st['stroke_width'] * 3)
 
-    # Outer border
-    bsw = st['stroke_width'] * 3
-    svg += _rect(margin, margin, cell*size, cell*size, 'none', st['stroke'], bsw)
-
-    # Cage dashed borders
-    cage_id_map = {}
-    for cage in cages:
-        for r, c in cage['cells']:
-            cage_id_map[(r, c)] = cage['id']
-
+    # Jaulas: contorno GRIS fino hacia adentro (inset) + etiqueta de la operación
+    inset = 5
     for cage in cages:
         cage_cells = set(map(tuple, cage['cells']))
         for (r, c) in cage_cells:
             x = margin + c * cell
             y = margin + r * cell
-            for dr, dc, x1r, y1r, x2r, y2r in [
-                (-1, 0, 0, 0, cell, 0),
-                (1,  0, 0, cell, cell, cell),
-                (0, -1, 0, 0, 0, cell),
-                (0,  1, cell, 0, cell, cell),
-            ]:
-                nr, nc = r+dr, c+dc
-                if (nr, nc) not in cage_cells:
-                    svg += (f'<line x1="{x+x1r+1:.1f}" y1="{y+y1r+1:.1f}" '
-                            f'x2="{x+x2r-1:.1f}" y2="{y+y2r-1:.1f}" '
-                            f'stroke="{st["stroke"]}" stroke-width="2" '
-                            f'stroke-dasharray="5,3"/>\n')
-        # Label
+            x0, y0 = x + inset, y + inset
+            x1, y1 = x + cell - inset, y + cell - inset
+            if (r - 1, c) not in cage_cells:
+                svg += _cage_line(x0, y0, x1, y0)
+            if (r + 1, c) not in cage_cells:
+                svg += _cage_line(x0, y1, x1, y1)
+            if (r, c - 1) not in cage_cells:
+                svg += _cage_line(x0, y0, x0, y1)
+            if (r, c + 1) not in cage_cells:
+                svg += _cage_line(x1, y0, x1, y1)
+        op_sym = {'*': '×', '/': '÷', '=': ''}.get(cage['op'], cage['op'])
+        label = f'{cage["target"]}{op_sym}'
         min_cell = min(cage['cells'], key=lambda p: (p[0], p[1]))
-        lx = margin + min_cell[1] * cell + 4
-        ly = margin + min_cell[0] * cell + 13
-        label = f'{cage["target"]}{cage["op"]}'
+        lx = margin + min_cell[1] * cell + inset + 2
+        ly = margin + min_cell[0] * cell + inset + 9
         svg += (f'<text x="{lx}" y="{ly}" font-family="Arial" '
                 f'font-size="11" font-weight="bold" fill="#000">{label}</text>\n')
 
@@ -612,49 +597,40 @@ def render_futoshiki(puzzle, solution, inequalities, style='flat',
     H = margin * 2 + size * cell + (size - 1) * gap
     svg = _svg_header(W, H)
 
-    # Primera pasada: sombreado si es solución
-    if show_solution:
-        for r in range(size):
-            for c in range(size):
-                x = margin + c * (cell + gap)
-                y = margin + r * (cell + gap)
-                svg += _rect(x, y, cell, cell, '#d9d9d9', 'none', 0)
-
-    # Segunda pasada: celdas
+    # Celdas: las PISTAS numéricas (números dados) van en GRIS; las respuestas que
+    # se completan en la solución van en negro y negrita. Misma plantilla en ambas.
+    clue_gray = '#999999'
     for r in range(size):
         for c in range(size):
             x = margin + c * (cell + gap)
             y = margin + r * (cell + gap)
-
+            svg += _rect(x, y, cell, cell, st['fill_empty'], st['stroke'], st['stroke_width'])
+            given = puzzle[r][c] not in (0, '', None)
             if show_solution:
-                svg += _rect(x, y, cell, cell, '#d9d9d9', st['stroke'], st['stroke_width'])
                 val = solution[r][c]
-                is_new = (puzzle[r][c] == 0 or puzzle[r][c] == '') and val
                 if val:
+                    color = clue_gray if given else '#000000'
                     svg += _text(x + cell/2, y + cell/2, str(val), st['font'],
-                                 cell * 0.5, bold=is_new)
-            else:
-                svg += _rect(x, y, cell, cell, st['fill_empty'], st['stroke'], st['stroke_width'])
-                val = puzzle[r][c]
-                if val:
-                    svg += _text(x + cell/2, y + cell/2, str(val), st['font_bold'],
-                                 cell * 0.5, bold=False)
+                                 cell * 0.5, bold=not given, color=color)
+            elif given:
+                svg += _text(x + cell/2, y + cell/2, str(puzzle[r][c]), st['font'],
+                             cell * 0.5, bold=False, color=clue_gray)
 
     # Inequalities
     for ineq in inequalities:
         r1, c1 = ineq['r1'], ineq['c1']
         r2, c2 = ineq['r2'], ineq['c2']
         op = ineq['op']
-        if r1 == r2:  # horizontal
+        if r1 == r2:  # horizontal: escapar < y > (romperían el SVG como texto crudo)
             x = margin + c1 * (cell + gap) + cell + gap / 2
             y = margin + r1 * (cell + gap) + cell / 2
-            svg += _text(x, y, op, st['font_bold'], 14, bold=True)
-        else:  # vertical
+            sym = '&lt;' if op == '<' else '&gt;'
+            svg += _text(x, y, sym, st['font_bold'], 16, bold=True)
+        else:  # vertical: mostrar el signo girado (∧/∨)
             x = margin + c1 * (cell + gap) + cell / 2
             y = margin + r1 * (cell + gap) + cell + gap / 2
-            # rotate symbol
-            sym = 'v' if op == '<' else '^'
-            svg += _text(x, y, sym, st['font_bold'], 14, bold=True)
+            sym = '∨' if op == '<' else '∧'   # ∨ / ∧
+            svg += _text(x, y, sym, st['font_bold'], 16, bold=True)
 
     svg += _svg_footer()
     return svg

@@ -2,8 +2,19 @@
 Red de seguridad para la familia de lógica (Bloque C en adelante).
 Validadores independientes de las reglas de cada juego.
 """
+import xml.etree.ElementTree as ET
+
 import pytest
 from puzzles import logic_puzzles as L
+from puzzles import kenken as K
+from puzzles import renderer as R
+
+
+def _es_latino(grid, n):
+    full = list(range(1, n + 1))
+    if any(sorted(grid[r]) != full for r in range(n)):
+        return False
+    return all(sorted(grid[r][c] for r in range(n)) == full for c in range(n))
 
 
 # ─── HITORI ──────────────────────────────────────────────────────────────────
@@ -123,3 +134,47 @@ def test_nurikabe_valido(difficulty):
     puzzle, solution = L.generate_nurikabe(15, 10, difficulty)
     err = _nurikabe_checks(solution)
     assert err is None, f"Nurikabe {difficulty} inválido: {err}"
+
+
+# ─── KENKEN ──────────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("size", [4, 6])
+def test_kenken_valido(size):
+    puzzle, solution, cages = K.generate_kenken(size, 'medium')
+    assert _es_latino(solution, size), "KenKen: la solución no es un cuadrado latino"
+    for cage in cages:
+        vals = [solution[r][c] for r, c in cage['cells']]
+        op, t = cage['op'], cage['target']
+        if op == '=':
+            assert vals[0] == t
+        elif op == '+':
+            assert sum(vals) == t
+        elif op == '*':
+            prod = 1
+            for v in vals:
+                prod *= v
+            assert prod == t
+        elif op == '-':
+            assert abs(vals[0] - vals[1]) == t
+        elif op == '/':
+            assert max(vals) // min(vals) == t
+    # El SVG debe ser XML válido (regresión: símbolos de operación)
+    ET.fromstring(R.render_kenken(puzzle, solution, cages, size, 'flat', 1.5, True))
+
+
+# ─── FUTOSHIKI ───────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("size", [5, 6])
+def test_futoshiki_valido(size):
+    puzzle, solution, ineqs = K.generate_futoshiki(size, 'medium')
+    assert _es_latino(solution, size), "Futoshiki: la solución no es un cuadrado latino"
+    for q in ineqs:
+        a = solution[q['r1']][q['c1']]
+        b = solution[q['r2']][q['c2']]
+        if q['op'] == '<':
+            assert a < b, "Futoshiki: desigualdad < no se cumple"
+        else:
+            assert a > b, "Futoshiki: desigualdad > no se cumple"
+    # El SVG debe ser XML válido (regresión del bug de < y > sin escapar)
+    ET.fromstring(R.render_futoshiki(puzzle, solution, ineqs, 'flat', 1.5, False))
+    ET.fromstring(R.render_futoshiki(puzzle, solution, ineqs, 'flat', 1.5, True))
