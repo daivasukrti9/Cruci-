@@ -38,7 +38,7 @@ const SIZE_OPTIONS = {
   futoshiki:[{label:'4×4',value:4},{label:'5×5',value:5},{label:'6×6',value:6},{label:'7×7',value:7}],
   hitori:   [{label:'10×10',value:[10,10]},{label:'20×14',value:[20,14]}],
   hashi:    [{label:'20×14',value:[20,14]},{label:'18×25',value:[18,25]}],
-  masyu:    [{label:'6×6',value:[6,6]},{label:'7×7',value:[7,7]},{label:'9×9',value:[9,9]}],
+  masyu:    [{label:'20×14',value:[20,14]},{label:'18×25',value:[18,25]}],
   akari:    [{label:'6×6',value:[6,6]},{label:'7×7',value:[7,7]},{label:'9×9',value:[9,9]}],
   nurikabe: [{label:'15×10',value:[15,10]}],
   crossword:[{label:'13×13',value:13},{label:'15×15',value:15},{label:'17×17',value:17},{label:'21×21',value:21}],

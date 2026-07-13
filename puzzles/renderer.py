@@ -692,52 +692,44 @@ def render_akari(puzzle, solution, style='flat', stroke_width=1.5, show_solution
 
 def render_masyu(puzzle, solution_path, pearls, style='flat', stroke_width=1.5,
                  show_solution=False):
-    if show_solution:
-        path_cells = set(solution_path)
-        sol_text = []
-        for r in range(len(puzzle)):
-            row_text = []
-            for c in range(len(puzzle[0])):
-                if (r, c) in path_cells:
-                    row_text.append('●')
-                else:
-                    row_text.append('○')
-            sol_text.append(''.join(row_text))
-        return render_solution_table({'Camino': '\n'.join(sol_text)}, 'Masyu SOLUCIÓN')
-
+    """Masyu sobre CUADRÍCULA GRIS con perlas (○ blanca, ● negra). La solución traza
+    el bucle (línea negra gruesa) sobre la misma plantilla."""
     st = {**STYLES.get(style, STYLES['flat']), 'stroke_width': stroke_width}
     rows, cols = len(puzzle), len(puzzle[0])
-    cell = 48
-    margin = 20
+    cell = 32
+    margin = 18
     W = margin * 2 + cols * cell
     H = margin * 2 + rows * cell
     svg = _svg_header(W, H)
 
-    for r in range(rows):
-        for c in range(cols):
-            x = margin + c * cell
-            y = margin + r * cell
-            svg += _rect(x, y, cell, cell, st['fill_empty'], st['stroke'], st['stroke_width'])
+    # Cuadrícula gris
+    grid_gray = '#c8c8c8'
+    for i in range(rows + 1):
+        y = margin + i * cell
+        svg += _cage_line(margin, y, margin + cols * cell, y, color=grid_gray, sw=1.0)
+    for j in range(cols + 1):
+        x = margin + j * cell
+        svg += _cage_line(x, margin, x, margin + rows * cell, color=grid_gray, sw=1.0)
 
-    # Solution path
+    # Bucle solución (negro grueso), por debajo de las perlas
     if show_solution and solution_path:
-        pts = [(margin + c*cell + cell//2, margin + r*cell + cell//2)
+        pts = [(margin + c * cell + cell / 2, margin + r * cell + cell / 2)
                for r, c in solution_path]
-        if pts:
-            path_d = f'M {pts[0][0]} {pts[0][1]} ' + ' '.join(f'L {x} {y}' for x, y in pts[1:])
-            path_d += f' Z'
-            svg += (f'<path d="{path_d}" fill="none" stroke="{st["stroke"]}" '
-                    f'stroke-width="3" stroke-linejoin="round"/>\n')
+        path_d = (f'M {pts[0][0]:.1f} {pts[0][1]:.1f} '
+                  + ' '.join(f'L {x:.1f} {y:.1f}' for x, y in pts[1:]) + ' Z')
+        svg += (f'<path d="{path_d}" fill="none" stroke="{st["stroke"]}" '
+                f'stroke-width="3" stroke-linejoin="round"/>\n')
 
-    # Pearls
+    # Perlas
     for (r, c), ptype in pearls.items():
-        cx = margin + c * cell + cell//2
-        cy = margin + r * cell + cell//2
+        cx = margin + c * cell + cell / 2
+        cy = margin + r * cell + cell / 2
         if ptype == 'B':
-            svg += f'<circle cx="{cx}" cy="{cy}" r="{cell*0.3}" fill="{st["fill_black"]}"/>\n'
+            svg += (f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{cell*0.30}" '
+                    f'fill="{st["fill_black"]}" stroke="{st["fill_black"]}" stroke-width="1"/>\n')
         else:
-            svg += (f'<circle cx="{cx}" cy="{cy}" r="{cell*0.3}" '
-                    f'fill="{st["fill_empty"]}" stroke="{st["fill_black"]}" stroke-width="2"/>\n')
+            svg += (f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{cell*0.30}" '
+                    f'fill="#ffffff" stroke="{st["fill_black"]}" stroke-width="2.5"/>\n')
 
     svg += _svg_footer()
     return svg

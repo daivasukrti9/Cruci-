@@ -182,9 +182,9 @@ def _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, cl
     # ── MASYU ──
     elif puzzle_id == 'masyu':
         from puzzles.logic_puzzles import generate_masyu
-        sz = size_param if isinstance(size_param, list) else [7, 7]
+        sz = size_param if isinstance(size_param, (list, tuple)) else [20, 14]
         rows, cols = int(sz[0]), int(sz[1])
-        puzzle, solution_path, pearls = generate_masyu(rows, cols)
+        puzzle, solution_path, pearls = generate_masyu(rows, cols, difficulty)
         puzzle_svg   = R.render_masyu(puzzle, solution_path, pearls, style, stroke_w, False)
         solution_svg = R.render_masyu(puzzle, solution_path, pearls, style, stroke_w, True)
         return {'puzzle_svg': puzzle_svg, 'solution_svg': solution_svg,

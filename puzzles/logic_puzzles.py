@@ -442,57 +442,113 @@ def generate_akari(rows=7, cols=7, num_blacks=8):
 
 # ─── MASYU (Pearl) ───────────────────────────────────────────────────────────
 
-def generate_masyu(rows=7, cols=7):
-    """
-    Masyu pearl puzzle.
-    Returns (puzzle, solution_path, pearls)
-    puzzle: grid showing only pearl positions ('B'=black, 'W'=white, None=empty)
-    solution_path: list of (r,c) forming the loop
-    """
-    # Generate a random Hamiltonian-like loop on a subset of the grid
-    # Simplified: random walk loop
-    path = _random_loop(rows, cols)
-    if not path:
-        return [[None]*cols for _ in range(rows)], [], []
-
-    path_set = set(path)
-    turns = []
-    for i in range(len(path)):
-        prev = path[(i-1) % len(path)]
-        curr = path[i]
-        nxt = path[(i+1) % len(path)]
-        d1 = (curr[0]-prev[0], curr[1]-prev[1])
-        d2 = (nxt[0]-curr[0], nxt[1]-curr[1])
-        if d1 != d2:
-            turns.append(curr)
-
-    # Assign pearls
-    pearls = {}
-    straights = [p for p in path if p not in set(turns)]
-    for p in random.sample(turns, min(len(turns), max(2, len(turns)//2))):
-        pearls[p] = 'B'  # black = must turn here
-    for p in random.sample(straights, min(len(straights), max(2, len(straights)//3))):
-        pearls[p] = 'W'  # white = must go straight
-
-    puzzle = [[None]*cols for _ in range(rows)]
-    for (r, c), ptype in pearls.items():
-        puzzle[r][c] = ptype
-
-    return puzzle, path, pearls
-
-
-def _random_loop(rows, cols):
-    """Generate a random closed loop on the grid."""
-    # Start with a simple rectangular loop in the center
-    r1, c1 = rows//4, cols//4
-    r2, c2 = 3*rows//4, 3*cols//4
+def _boustrophedon(rows, cols):
+    """Camino hamiltoniano inicial en serpentina (celdas consecutivas adyacentes)."""
     path = []
-    for c in range(c1, c2+1):
-        path.append((r1, c))
-    for r in range(r1+1, r2+1):
-        path.append((r, c2))
-    for c in range(c2-1, c1-1, -1):
-        path.append((r2, c))
-    for r in range(r2-1, r1, -1):
-        path.append((r, c1))
+    for r in range(rows):
+        cs = range(cols) if r % 2 == 0 else range(cols - 1, -1, -1)
+        for c in cs:
+            path.append((r, c))
     return path
+
+
+def _masyu_cycle(rows, cols):
+    """Bucle cerrado ORGÁNICO que cubre toda la grilla. Randomiza un camino hamiltoniano
+    con el algoritmo 'backbite' y lo cierra cuando sus dos extremos quedan adyacentes."""
+    DIRS = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    path = _boustrophedon(rows, cols)
+    n = len(path)
+    pos = {cell: i for i, cell in enumerate(path)}
+
+    def adjacent(a, b):
+        return abs(a[0] - b[0]) + abs(a[1] - b[1]) == 1
+
+    warmup = n * 6                               # mezclar bien antes de cerrar
+    for it in range(n * 40):
+        if random.random() < 0.5:               # backbite en la cola
+            tail = path[-1]
+            nbrs = [(tail[0] + dr, tail[1] + dc) for dr, dc in DIRS
+                    if 0 <= tail[0] + dr < rows and 0 <= tail[1] + dc < cols]
+            random.shuffle(nbrs)
+            for q in nbrs:
+                j = pos[q]
+                if j >= n - 2:
+                    continue
+                path[j + 1:] = path[j + 1:][::-1]
+                for k in range(j + 1, n):
+                    pos[path[k]] = k
+                break
+        else:                                    # backbite en la cabeza
+            head = path[0]
+            nbrs = [(head[0] + dr, head[1] + dc) for dr, dc in DIRS
+                    if 0 <= head[0] + dr < rows and 0 <= head[1] + dc < cols]
+            random.shuffle(nbrs)
+            for q in nbrs:
+                j = pos[q]
+                if j <= 1:
+                    continue
+                path[:j] = path[:j][::-1]
+                for k in range(j):
+                    pos[path[k]] = k
+                break
+        if it >= warmup and adjacent(path[0], path[-1]):
+            return path                          # bien mezclado y cerrable en ciclo
+    # Fallback: seguir hasta que cierre (rarísimo llegar aquí)
+    while not adjacent(path[0], path[-1]):
+        tail = path[-1]
+        nbrs = [(tail[0] + dr, tail[1] + dc) for dr, dc in DIRS
+                if 0 <= tail[0] + dr < rows and 0 <= tail[1] + dc < cols]
+        random.shuffle(nbrs)
+        for q in nbrs:
+            j = pos[q]
+            if j >= n - 2:
+                continue
+            path[j + 1:] = path[j + 1:][::-1]
+            for k in range(j + 1, n):
+                pos[path[k]] = k
+            break
+    return path
+
+
+def generate_masyu(rows=14, cols=10, difficulty='medium'):
+    """
+    Masyu válido: un único bucle cerrado sobre la grilla, con perlas colocadas de modo
+    que el bucle las cumpla:
+      - Perla BLANCA ('W'): el bucle va RECTO en esa celda y GIRA en al menos una de
+        las dos celdas contiguas del bucle.
+      - Perla NEGRA ('B'): el bucle GIRA en esa celda y va RECTO en ambas contiguas.
+    Returns (puzzle, loop, pearls): puzzle solo muestra las perlas; loop = celdas del
+    bucle en orden; pearls = {(r,c): 'W'|'B'}.
+    """
+    loop = _masyu_cycle(rows, cols)
+    n = len(loop)
+
+    def d(i):
+        p = loop[(i - 1) % n]
+        x = loop[i]
+        return (x[0] - p[0], x[1] - p[1])
+
+    def straight(i):
+        return d(i) == d((i + 1) % n)
+
+    white_c, black_c = [], []
+    for i in range(n):
+        if straight(i):
+            if not straight((i - 1) % n) or not straight((i + 1) % n):
+                white_c.append(loop[i])
+        elif straight((i - 1) % n) and straight((i + 1) % n):
+            black_c.append(loop[i])
+
+    frac = {'easy': 0.22, 'medium': 0.38, 'hard': 0.58}.get(difficulty, 0.38)
+    random.shuffle(white_c)
+    random.shuffle(black_c)
+    pearls = {}
+    for p in white_c[:max(1, int(len(white_c) * frac))]:
+        pearls[p] = 'W'
+    for p in black_c[:max(1, int(len(black_c) * frac))]:
+        pearls[p] = 'B'
+
+    puzzle = [[None] * cols for _ in range(rows)]
+    for (r, c), t in pearls.items():
+        puzzle[r][c] = t
+    return puzzle, loop, pearls

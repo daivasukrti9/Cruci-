@@ -224,3 +224,39 @@ def test_hashi_valido(rows, cols, difficulty):
     for i in islands:
         for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             assert (i['row'] + dr, i['col'] + dc) not in pos, "islas adyacentes"
+
+
+# ─── MASYU ───────────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("rows,cols", [(20, 14), (18, 25)])
+@pytest.mark.parametrize("difficulty", ["easy", "medium", "hard"])
+def test_masyu_valido(rows, cols, difficulty):
+    puzzle, loop, pearls = L.generate_masyu(rows, cols, difficulty)
+    n = len(loop)
+    # Bucle: cubre toda la grilla, sin repetidos, y CIERRA (consecutivos adyacentes)
+    assert n == rows * cols and len(set(loop)) == n, "bucle no cubre toda la grilla"
+    for i in range(n):
+        a, b = loop[i], loop[(i + 1) % n]
+        assert abs(a[0] - b[0]) + abs(a[1] - b[1]) == 1, "el bucle no es continuo/cerrado"
+    pos = {c: i for i, c in enumerate(loop)}
+
+    def d(i):
+        p = loop[(i - 1) % n]
+        x = loop[i]
+        return (x[0] - p[0], x[1] - p[1])
+
+    def straight(i):
+        return d(i) == d((i + 1) % n)
+
+    for (r, c), t in pearls.items():
+        i = pos[(r, c)]
+        if t == 'W':   # recto aquí + gira en al menos una contigua
+            assert straight(i), "perla blanca en un giro"
+            assert not (straight((i - 1) % n) and straight((i + 1) % n)), \
+                "perla blanca sin giro contiguo"
+        else:          # negra: gira aquí + recto en ambas contiguas
+            assert not straight(i), "perla negra en un tramo recto"
+            assert straight((i - 1) % n) and straight((i + 1) % n), \
+                "perla negra con giro contiguo"
+    # SVG válido
+    ET.fromstring(R.render_masyu(puzzle, loop, pearls, 'flat', 1.5, True))
