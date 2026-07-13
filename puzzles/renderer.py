@@ -641,48 +641,50 @@ def render_futoshiki(puzzle, solution, inequalities, style='flat',
 # ─── AKARI ───────────────────────────────────────────────────────────────────
 
 def render_akari(puzzle, solution, style='flat', stroke_width=1.5, show_solution=False):
-    if show_solution:
-        sol_text = []
-        for r in range(len(solution)):
-            row_text = []
-            for c in range(len(solution[0])):
-                v = solution[r][c]
-                row_text.append('💡' if v == 'L' else ('■' if v == -1 else str(v) if isinstance(v, int) else ' '))
-            sol_text.append(' '.join(row_text))
-        return render_solution_table({'Solución': '\n'.join(sol_text)}, 'Akari SOLUCIÓN')
-
+    """Akari sobre la MISMA plantilla. Muros = celdas negras (con número en blanco).
+    Solución: bombillas como discos, y las celdas iluminadas sombreadas suavemente."""
     st = {**STYLES.get(style, STYLES['flat']), 'stroke_width': stroke_width}
     rows = len(puzzle)
     cols = len(puzzle[0])
-    cell = 48
-    margin = 20
+    cell = 32
+    margin = 16
     W = margin * 2 + cols * cell
     H = margin * 2 + rows * cell
     svg = _svg_header(W, H)
-    grid = puzzle
+
+    black = {(r, c) for r in range(rows) for c in range(cols) if puzzle[r][c] is not None}
+    bulbs = set()
+    lit = set()
+    if show_solution:
+        bulbs = {(r, c) for r in range(rows) for c in range(cols) if solution[r][c] == 'L'}
+        for (br, bc) in bulbs:
+            lit.add((br, bc))
+            for dr, dc in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+                nr, nc = br + dr, bc + dc
+                while 0 <= nr < rows and 0 <= nc < cols and (nr, nc) not in black:
+                    lit.add((nr, nc))
+                    nr += dr
+                    nc += dc
 
     for r in range(rows):
         for c in range(cols):
             x = margin + c * cell
             y = margin + r * cell
             pv = puzzle[r][c]
-            sv = solution[r][c] if solution else None
-
-            if pv is not None and pv != 'L':
-                # Black cell
+            if pv is not None:               # muro
                 svg += _rect(x, y, cell, cell, st['fill_black'], st['stroke'], st['stroke_width'])
                 if isinstance(pv, int) and pv >= 0:
-                    svg += _text(x+cell/2, y+cell/2, str(pv), st['font_bold'],
-                                 cell*0.4, bold=True, color='#ffffff')
+                    svg += _text(x + cell / 2, y + cell / 2, str(pv), st['font_bold'],
+                                 cell * 0.5, bold=True, color='#ffffff')
             else:
-                svg += _rect(x, y, cell, cell, st['fill_empty'], st['stroke'], st['stroke_width'])
-                if show_solution and sv == 'L':
-                    # Draw lightbulb symbol
-                    cx, cy = x + cell/2, y + cell/2
-                    svg += (f'<circle cx="{cx}" cy="{cy}" r="{cell*0.25}" '
-                            f'fill="none" stroke="{st["stroke"]}" stroke-width="2"/>\n')
-                    svg += (f'<circle cx="{cx}" cy="{cy}" r="{cell*0.1}" '
-                            f'fill="{st["stroke"]}"/>\n')
+                fill = '#e9e9e9' if (r, c) in lit else st['fill_empty']
+                svg += _rect(x, y, cell, cell, fill, st['stroke'], st['stroke_width'])
+                if (r, c) in bulbs:          # bombilla
+                    cx, cy = x + cell / 2, y + cell / 2
+                    svg += (f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{cell*0.32}" '
+                            f'fill="{st["fill_black"]}" stroke="#000000" stroke-width="1"/>\n')
+                    svg += (f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{cell*0.13}" '
+                            f'fill="#ffffff"/>\n')
 
     svg += _svg_footer()
     return svg

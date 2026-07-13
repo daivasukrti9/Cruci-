@@ -34,7 +34,7 @@
       "puzzles": [
         {"id":"hashi","name":"Hashi (Puentes)","sizes":[[20,14],[18,25]],"needs_words":false},
         {"id":"masyu","name":"Masyu (Perla)","sizes":[[20,14],[18,25]],"needs_words":false},
-        {"id":"akari","name":"Akari (Iluminación)","sizes":[[6,6],[7,7],[9,9]],"needs_words":false},
+        {"id":"akari","name":"Akari (Iluminación)","sizes":[[12,12],[20,20]],"needs_words":false},
         {"id":"nurikabe","name":"Nurikabe","sizes":[[15,10]],"needs_words":false}
       ]
     },

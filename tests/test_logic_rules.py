@@ -260,3 +260,43 @@ def test_masyu_valido(rows, cols, difficulty):
                 "perla negra con giro contiguo"
     # SVG válido
     ET.fromstring(R.render_masyu(puzzle, loop, pearls, 'flat', 1.5, True))
+
+
+# ─── AKARI ───────────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("size", [12, 20])
+@pytest.mark.parametrize("difficulty", ["easy", "medium", "hard"])
+def test_akari_valido(size, difficulty):
+    grid, solution = L.generate_akari(size, size, difficulty)
+    rows = cols = size
+    black = {(r, c) for r in range(rows) for c in range(cols) if grid[r][c] is not None}
+    bulbs = {(r, c) for r in range(rows) for c in range(cols) if solution[r][c] == 'L'}
+
+    def ray(r, c):
+        s = {(r, c)}
+        for dr, dc in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+            nr, nc = r + dr, c + dc
+            while 0 <= nr < rows and 0 <= nc < cols and (nr, nc) not in black:
+                s.add((nr, nc))
+                nr += dr
+                nc += dc
+        return s
+
+    # Todas las blancas iluminadas
+    lit = set()
+    for b in bulbs:
+        lit |= ray(*b)
+    white = {(r, c) for r in range(rows) for c in range(cols) if (r, c) not in black}
+    assert lit == white, "quedan celdas sin iluminar"
+    # Ninguna bombilla ve a otra
+    for b in bulbs:
+        assert not any(o in bulbs for o in ray(*b) - {b}), "dos bombillas se ven"
+    # Muros numerados: bombillas adyacentes == número
+    for r in range(rows):
+        for c in range(cols):
+            v = solution[r][c]
+            if isinstance(v, int) and v >= 0:
+                adj = sum(1 for dr, dc in [(0, 1), (0, -1), (1, 0), (-1, 0)]
+                          if (r + dr, c + dc) in bulbs)
+                assert adj == v, f"muro {v} tiene {adj} bombillas"
+    ET.fromstring(R.render_akari(grid, solution, 'flat', 1.5, True))

@@ -382,62 +382,79 @@ def generate_hitori(rows=10, cols=None):
 
 # ─── AKARI (Light Up) ────────────────────────────────────────────────────────
 
-def generate_akari(rows=7, cols=7, num_blacks=8):
-    """
-    Akari / Light Up puzzle.
-    Returns (puzzle, solution) where:
-      puzzle: grid of None (white) or int 0-4 (black with count) or -1 (black, no count)
-      solution: same grid with lightbulb positions marked as 'L'
-    """
-    grid = [[None]*cols for _ in range(rows)]
-    solution = [[None]*cols for _ in range(rows)]
-
-    # Place black cells randomly
+def _try_akari(rows, cols, wall_density, num_frac):
+    """Un intento de Akari. Devuelve (grid, solution, bulbs, black_cells) o None si no
+    logra iluminar todo sin que dos bombillas se vean."""
     black_cells = set()
-    all_cells = [(r,c) for r in range(rows) for c in range(cols)]
+    all_cells = [(r, c) for r in range(rows) for c in range(cols)]
     random.shuffle(all_cells)
-    for r, c in all_cells[:num_blacks]:
-        black_cells.add((r,c))
-        grid[r][c] = -1  # black, count TBD
-        solution[r][c] = -1
+    for r, c in all_cells[:int(rows * cols * wall_density)]:
+        black_cells.add((r, c))
 
-    # Place lightbulbs on white cells (greedy: try to illuminate all)
-    white_cells = [(r,c) for r in range(rows) for c in range(cols) if (r,c) not in black_cells]
-    illuminated = set()
-    bulbs = set()
-
-    def illuminate(r, c):
-        cells = {(r,c)}
-        for dr, dc in [(0,1),(0,-1),(1,0),(-1,0)]:
-            nr, nc = r+dr, c+dc
-            while 0 <= nr < rows and 0 <= nc < cols and (nr,nc) not in black_cells:
-                cells.add((nr,nc))
+    def ray(r, c):
+        cells = {(r, c)}
+        for dr, dc in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+            nr, nc = r + dr, c + dc
+            while 0 <= nr < rows and 0 <= nc < cols and (nr, nc) not in black_cells:
+                cells.add((nr, nc))
                 nr += dr
                 nc += dc
         return cells
 
-    random.shuffle(white_cells)
-    for r, c in white_cells:
-        if (r,c) not in illuminated:
-            lit = illuminate(r, c)
-            if not any(b in lit for b in bulbs if b != (r,c)):
-                bulbs.add((r,c))
+    white = [(r, c) for r in range(rows) for c in range(cols) if (r, c) not in black_cells]
+    illuminated = set()
+    bulbs = set()
+    random.shuffle(white)
+    for r, c in white:
+        if (r, c) not in illuminated:
+            lit = ray(r, c)
+            if not any(b in lit for b in bulbs):
+                bulbs.add((r, c))
                 illuminated |= lit
+    # Debe iluminar TODAS las blancas
+    if illuminated != set(white):
+        return None
 
-    # Assign counts to black cells
-    for r, c in black_cells:
-        count = sum(1 for dr, dc in [(0,1),(0,-1),(1,0),(-1,0)]
-                    if (r+dr, c+dc) in bulbs)
-        if random.random() < 0.6:  # show number on ~60% of blacks
+    grid = [[None] * cols for _ in range(rows)]
+    solution = [[None] * cols for _ in range(rows)]
+    for (r, c) in black_cells:
+        grid[r][c] = -1
+        solution[r][c] = -1
+    for (r, c) in black_cells:
+        count = sum(1 for dr, dc in [(0, 1), (0, -1), (1, 0), (-1, 0)]
+                    if (r + dr, c + dc) in bulbs)
+        if random.random() < num_frac:      # muros numerados (más en fácil)
             grid[r][c] = count
             solution[r][c] = count
-        # else -1 (no clue)
-
-    # Mark bulbs in solution
-    for r, c in bulbs:
+    for (r, c) in bulbs:
         solution[r][c] = 'L'
-
     return grid, solution
+
+
+def generate_akari(rows=12, cols=None, difficulty='medium'):
+    """
+    Akari / Light Up válido: coloca bombillas para iluminar todas las celdas blancas
+    sin que dos bombillas se iluminen entre sí; los muros numerados indican cuántas
+    bombillas los tocan. Fácil = más muros y más números; Difícil = menos números
+    (pasillos largos).
+    puzzle: None=blanca, -1=muro sin número, int=muro con número.
+    solution: igual + 'L' en las bombillas.
+    """
+    if cols is None:
+        cols = rows
+    wall_density = {'easy': 0.20, 'medium': 0.16, 'hard': 0.12}.get(difficulty, 0.16)
+    num_frac = {'easy': 0.85, 'medium': 0.55, 'hard': 0.32}.get(difficulty, 0.55)
+    for _ in range(200):
+        res = _try_akari(rows, cols, wall_density, num_frac)
+        if res is not None:
+            return res
+    # Fallback: menos muros (más fácil que se ilumine todo)
+    for _ in range(200):
+        res = _try_akari(rows, cols, 0.10, num_frac)
+        if res is not None:
+            return res
+    return _try_akari(rows, cols, 0.06, num_frac) or (
+        [[None] * cols for _ in range(rows)], [[None] * cols for _ in range(rows)])
 
 
 # ─── MASYU (Pearl) ───────────────────────────────────────────────────────────

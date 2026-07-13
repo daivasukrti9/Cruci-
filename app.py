@@ -194,9 +194,9 @@ def _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, cl
     # ── AKARI ──
     elif puzzle_id == 'akari':
         from puzzles.logic_puzzles import generate_akari
-        sz = size_param if isinstance(size_param, list) else [7, 7]
+        sz = size_param if isinstance(size_param, (list, tuple)) else [12, 12]
         rows, cols = int(sz[0]), int(sz[1])
-        puzzle, solution = generate_akari(rows, cols)
+        puzzle, solution = generate_akari(rows, cols, difficulty)
         puzzle_svg   = R.render_akari(puzzle, solution, style, stroke_w, False)
         solution_svg = R.render_akari(puzzle, solution, style, stroke_w, True)
         return {'puzzle_svg': puzzle_svg, 'solution_svg': solution_svg,
