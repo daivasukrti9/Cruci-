@@ -616,7 +616,8 @@ def render_futoshiki(puzzle, solution, inequalities, style='flat',
         for c in range(size):
             x = margin + c * (cell + gap)
             y = margin + r * (cell + gap)
-            svg += _rect(x, y, cell, cell, st['fill_empty'], st['stroke'], st['stroke_width'])
+            # Esquinas ligeramente redondeadas (distribución tipo "cuadros sueltos")
+            svg += _rect(x, y, cell, cell, st['fill_empty'], st['stroke'], st['stroke_width'], rx=5)
             given = puzzle[r][c] not in (0, '', None)
             if show_solution:
                 val = solution[r][c]
