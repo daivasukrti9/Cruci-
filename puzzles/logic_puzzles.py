@@ -5,94 +5,121 @@ from collections import deque
 
 # ─── HASHI (Bridges) ────────────────────────────────────────────────────────
 
-def generate_hashi(rows=7, cols=7, num_islands=None):
+_HASHI_DIRS = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+
+def generate_hashi(rows=14, cols=10, difficulty='medium'):
     """
-    Generate a Hashi puzzle.
-    Returns (islands, bridges) where:
-      islands: list of {'id','row','col','count'}
-      bridges: list of {'from','to','count'} (solution)
-    The puzzle shows only islands with their counts; player draws bridges.
+    Genera un Hashi VÁLIDO: se construye una red de islas CONECTADA (un solo grafo)
+    con puentes rectos que NO se cruzan, creciendo desde una isla semilla. Cada isla
+    lleva su número = total de puentes que salen de ella.
+    Returns (islands, bridges): islands=[{id,row,col,count}], bridges=[{from,to,count}].
     """
-    if num_islands is None:
-        num_islands = max(4, (rows * cols) // 5)
+    island_at = {}          # (r,c) -> id
+    islands = []            # {id,row,col,count}
+    bridges = {}            # frozenset(id1,id2) -> count (1 o 2)
+    seg = set()             # celdas ocupadas por algún puente (evita cruces/solapes)
 
-    # Place islands on grid ensuring no two are adjacent
-    island_positions = set()
-    attempts = 0
-    while len(island_positions) < num_islands and attempts < 10000:
-        attempts += 1
-        r, c = random.randint(0, rows-1), random.randint(0, cols-1)
-        if all(abs(r-ir) > 1 or abs(c-ic) > 1 for ir, ic in island_positions):
-            island_positions.add((r, c))
+    def add_island(r, c):
+        iid = len(islands)
+        islands.append({'id': iid, 'row': r, 'col': c, 'count': 0})
+        island_at[(r, c)] = iid
+        return iid
 
-    islands = [{'id': i, 'row': r, 'col': c, 'count': 0}
-               for i, (r, c) in enumerate(sorted(island_positions))]
+    def between(r1, c1, r2, c2):
+        if r1 == r2:
+            s = 1 if c2 > c1 else -1
+            return [(r1, c) for c in range(c1 + s, c2, s)]
+        s = 1 if r2 > r1 else -1
+        return [(r, c1) for r in range(r1 + s, r2, s)]
 
-    pos_to_island = {(isl['row'], isl['col']): isl['id'] for isl in islands}
+    def adjacent_to_island(r, c):
+        return any((r + dr, c + dc) in island_at for dr, dc in _HASHI_DIRS)
 
-    def find_neighbors(isl_id):
-        isl = islands[isl_id]
-        nbrs = []
-        # Horizontal: scan right
-        c = isl['col'] + 1
-        while c < cols:
-            if (isl['row'], c) in pos_to_island:
-                nbrs.append(pos_to_island[(isl['row'], c)])
+    def path_clear(r1, c1, r2, c2):
+        return all((r, c) not in island_at and (r, c) not in seg
+                   for (r, c) in between(r1, c1, r2, c2))
+
+    def place_bridge(a, b, cnt):
+        bridges[frozenset([a['id'], b['id']])] = cnt
+        for (r, c) in between(a['row'], a['col'], b['row'], b['col']):
+            seg.add((r, c))
+        a['count'] += cnt
+        b['count'] += cnt
+
+    # Parámetros por dificultad (según la guía de densidad):
+    density     = {'easy': 0.13, 'medium': 0.11, 'hard': 0.09}.get(difficulty, 0.11)
+    max_reach   = {'easy': 4,    'medium': 6,    'hard': 9}.get(difficulty, 6)   # largo máx. de puente
+    p_double    = {'easy': 0.60, 'medium': 0.40, 'hard': 0.25}.get(difficulty, 0.40)
+    target = max(4, int(rows * cols * density))
+
+    add_island(random.randrange(rows), random.randrange(cols))
+    guard = 0
+    while len(islands) < target and guard < target * 80:
+        guard += 1
+        E = random.choice(islands)
+        if E['count'] >= 8:
+            continue
+        dr, dc = random.choice(_HASHI_DIRS)
+        r, c = E['row'] + dr, E['col'] + dc
+        dist = 1
+        cands = []
+        while 0 <= r < rows and 0 <= c < cols and dist <= max_reach:
+            if (r, c) in island_at or (r, c) in seg:
                 break
-            c += 1
-        # Horizontal: scan left
-        c = isl['col'] - 1
-        while c >= 0:
-            if (isl['row'], c) in pos_to_island:
-                nbrs.append(pos_to_island[(isl['row'], c)])
+            if dist >= 2 and not adjacent_to_island(r, c):
+                cands.append((r, c))
+            r += dr; c += dc; dist += 1
+        if not cands:
+            continue
+        L = cands[0] if difficulty == 'easy' else random.choice(cands)
+        if not path_clear(E['row'], E['col'], L[0], L[1]):
+            continue
+        cnt = 2 if random.random() < p_double else 1
+        cnt = min(cnt, 8 - E['count'])
+        if cnt < 1:
+            continue
+        lid = add_island(L[0], L[1])
+        place_bridge(E, islands[lid], cnt)
+
+    # Aristas extra entre islas ya visibles (sin cruzar) para enriquecer las pistas.
+    extra_target = int(len(islands) * 0.30)
+    added = tries = 0
+    while added < extra_target and tries < len(islands) * 40:
+        tries += 1
+        A = random.choice(islands)
+        dr, dc = random.choice(_HASHI_DIRS)
+        r, c = A['row'] + dr, A['col'] + dc
+        dist = 1
+        found = None
+        while 0 <= r < rows and 0 <= c < cols and dist <= max_reach:
+            if (r, c) in island_at:
+                found = island_at[(r, c)]
                 break
-            c -= 1
-        # Vertical: scan down
-        r = isl['row'] + 1
-        while r < rows:
-            if (r, isl['col']) in pos_to_island:
-                nbrs.append(pos_to_island[(r, isl['col'])])
+            if (r, c) in seg:
                 break
-            r += 1
-        # Vertical: scan up
-        r = isl['row'] - 1
-        while r >= 0:
-            if (r, isl['col']) in pos_to_island:
-                nbrs.append(pos_to_island[(r, isl['col'])])
-                break
-            r -= 1
-        return list(set(nbrs))
+            r += dr; c += dc; dist += 1
+        if found is None:
+            continue
+        B = islands[found]
+        pair = frozenset([A['id'], B['id']])
+        if pair in bridges:
+            continue
+        if not path_clear(A['row'], A['col'], B['row'], B['col']):
+            continue
+        cnt = 2 if random.random() < p_double else 1
+        cnt = min(cnt, 8 - A['count'], 8 - B['count'])
+        if cnt < 1:
+            continue
+        place_bridge(A, B, cnt)
+        added += 1
 
-    # Generate random bridges
-    bridges = []
-    bridge_set = {}  # frozenset({id1,id2}) -> count
+    if len(islands) < 2:
+        return generate_hashi(rows, cols, difficulty)   # reintento raro
 
-    for isl_id in range(len(islands)):
-        nbrs = find_neighbors(isl_id)
-        for nbr_id in nbrs:
-            pair = frozenset([isl_id, nbr_id])
-            if pair not in bridge_set and random.random() < 0.5:
-                cnt = random.randint(1, 2)
-                bridge_set[pair] = cnt
-                bridges.append({'from': min(isl_id,nbr_id), 'to': max(isl_id,nbr_id), 'count': cnt})
-
-    # Update island counts
-    for b in bridges:
-        islands[b['from']]['count'] += b['count']
-        islands[b['to']]['count'] += b['count']
-
-    # Remove islands with 0 bridges
-    connected_ids = set()
-    for b in bridges:
-        connected_ids.add(b['from'])
-        connected_ids.add(b['to'])
-
-    islands = [isl for isl in islands if isl['id'] in connected_ids]
-    # Ensure count >= 1
-    for isl in islands:
-        isl['count'] = max(1, min(8, isl['count']))
-
-    return islands, bridges
+    bridge_list = [{'from': min(p), 'to': max(p), 'count': cnt}
+                   for p, cnt in bridges.items()]
+    return islands, bridge_list
 
 
 # ─── NURIKABE ────────────────────────────────────────────────────────────────

@@ -462,65 +462,54 @@ def render_maze_hex(cells, connections, walls, solution_path, rows, cols,
 
 # ─── HASHI (Bridges) ─────────────────────────────────────────────────────────
 
-def render_hashi(islands, bridges, rows=7, cols=7, style='flat',
+def render_hashi(islands, bridges, rows=14, cols=10, style='flat',
                  stroke_width=1.5, show_solution=False):
-    if show_solution:
-        bridges_text = {}
-        for b in bridges:
-            from_i = next(i for i in islands if i['id'] == b['from'])
-            to_i = next(i for i in islands if i['id'] == b['to'])
-            key = f"({from_i['row']},{from_i['col']}) → ({to_i['row']},{to_i['col']})"
-            bridges_text[key] = f"{b['count']} puente{'s' if b['count'] > 1 else ''}"
-        return render_solution_table(bridges_text, 'Hashi SOLUCIÓN', cols=1)
-
+    """Hashi sobre CUADRÍCULA GRIS. Islas = cuadros redondeados con su número. La
+    solución traza los puentes (líneas dobles si son 2) sobre la misma plantilla."""
     st = {**STYLES.get(style, STYLES['flat']), 'stroke_width': stroke_width}
-    cell = 70
-    margin = 40
-    W = margin * 2 + (cols - 1) * cell
-    H = margin * 2 + (rows - 1) * cell
+    cell = 42
+    margin = 22
+    W = margin * 2 + cols * cell
+    H = margin * 2 + rows * cell
     svg = _svg_header(W, H)
 
-    # Background grid dots
-    for r in range(rows):
-        for c in range(cols):
-            x = margin + c * cell
-            y = margin + r * cell
-            svg += f'<circle cx="{x}" cy="{y}" r="1" fill="#ccc"/>\n'
+    # Cuadrícula gris
+    grid_gray = '#cccccc'
+    for i in range(rows + 1):
+        y = margin + i * cell
+        svg += _cage_line(margin, y, margin + cols * cell, y, color=grid_gray, sw=1.0)
+    for j in range(cols + 1):
+        x = margin + j * cell
+        svg += _cage_line(x, margin, x, margin + rows * cell, color=grid_gray, sw=1.0)
 
-    # Bridges
+    def center(r, c):
+        return margin + c * cell + cell / 2, margin + r * cell + cell / 2
+
+    # Puentes (solo en la solución), por debajo de las islas
     if show_solution:
-        isl_map = {isl['id']: isl for isl in islands}
+        idmap = {i['id']: i for i in islands}
         for b in bridges:
-            i1, i2 = isl_map[b['from']], isl_map[b['to']]
-            x1 = margin + i1['col'] * cell
-            y1 = margin + i1['row'] * cell
-            x2 = margin + i2['col'] * cell
-            y2 = margin + i2['row'] * cell
-            # Double bridge offset
+            a, d = idmap[b['from']], idmap[b['to']]
+            x1, y1 = center(a['row'], a['col'])
+            x2, y2 = center(d['row'], d['col'])
             if b['count'] == 2:
-                offset = 4
-                if i1['row'] == i2['row']:
-                    svg += (f'<line x1="{x1}" y1="{y1-offset}" x2="{x2}" y2="{y2-offset}" '
-                            f'stroke="{st["stroke"]}" stroke-width="2"/>\n')
-                    svg += (f'<line x1="{x1}" y1="{y1+offset}" x2="{x2}" y2="{y2+offset}" '
-                            f'stroke="{st["stroke"]}" stroke-width="2"/>\n')
-                else:
-                    svg += (f'<line x1="{x1-offset}" y1="{y1}" x2="{x2-offset}" y2="{y2}" '
-                            f'stroke="{st["stroke"]}" stroke-width="2"/>\n')
-                    svg += (f'<line x1="{x1+offset}" y1="{y1}" x2="{x2+offset}" y2="{y2}" '
-                            f'stroke="{st["stroke"]}" stroke-width="2"/>\n')
+                off = 4
+                if a['row'] == d['row']:      # horizontal
+                    for o in (-off, off):
+                        svg += _cage_line(x1, y1 + o, x2, y2 + o, color=st['stroke'], sw=2.2)
+                else:                          # vertical
+                    for o in (-off, off):
+                        svg += _cage_line(x1 + o, y1, x2 + o, y2, color=st['stroke'], sw=2.2)
             else:
-                svg += (f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" '
-                        f'stroke="{st["stroke"]}" stroke-width="2"/>\n')
+                svg += _cage_line(x1, y1, x2, y2, color=st['stroke'], sw=2.2)
 
-    # Islands
-    r_isl = cell * 0.25
+    # Islas: cuadros redondeados con el número
+    isz = cell * 0.68
     for isl in islands:
-        x = margin + isl['col'] * cell
-        y = margin + isl['row'] * cell
-        svg += (f'<circle cx="{x}" cy="{y}" r="{r_isl}" '
-                f'fill="{st["fill_empty"]}" stroke="{st["stroke"]}" stroke-width="2"/>\n')
-        svg += _text(x, y, str(isl['count']), st['font_bold'], r_isl * 1.1, bold=True)
+        cx, cy = center(isl['row'], isl['col'])
+        svg += _rect(cx - isz / 2, cy - isz / 2, isz, isz,
+                     st['fill_empty'], st['stroke'], 2.0, rx=7)
+        svg += _text(cx, cy, str(isl['count']), st['font_bold'], isz * 0.55, bold=True)
 
     svg += _svg_footer()
     return svg

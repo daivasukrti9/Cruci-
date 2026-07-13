@@ -187,3 +187,40 @@ def test_futoshiki_simbolo_desigualdad():
     assert R._ineq_symbol('>', vertical=False) == '&gt;'   # izq > der
     assert R._ineq_symbol('<', vertical=True) == '∧'       # arriba < abajo => vértice arriba
     assert R._ineq_symbol('>', vertical=True) == '∨'       # arriba > abajo => vértice abajo
+
+
+# ─── HASHI ───────────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("rows,cols", [(20, 14), (18, 25)])
+@pytest.mark.parametrize("difficulty", ["easy", "medium", "hard"])
+def test_hashi_valido(rows, cols, difficulty):
+    islands, bridges = L.generate_hashi(rows, cols, difficulty)
+    assert len(islands) >= 2
+    # count de cada isla == suma de sus puentes
+    deg = {i['id']: 0 for i in islands}
+    for b in bridges:
+        assert 1 <= b['count'] <= 2
+        deg[b['from']] += b['count']
+        deg[b['to']] += b['count']
+    for i in islands:
+        assert deg[i['id']] == i['count'], "count != grados"
+        assert 1 <= i['count'] <= 8
+    # grafo conectado (un solo componente)
+    adj = {i['id']: [] for i in islands}
+    for b in bridges:
+        adj[b['from']].append(b['to'])
+        adj[b['to']].append(b['from'])
+    seen = {islands[0]['id']}
+    st = [islands[0]['id']]
+    while st:
+        n = st.pop()
+        for m in adj[n]:
+            if m not in seen:
+                seen.add(m)
+                st.append(m)
+    assert len(seen) == len(islands), "grafo desconectado"
+    # islas no adyacentes ortogonalmente
+    pos = {(i['row'], i['col']) for i in islands}
+    for i in islands:
+        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            assert (i['row'] + dr, i['col'] + dc) not in pos, "islas adyacentes"
