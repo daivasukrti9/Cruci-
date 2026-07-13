@@ -201,28 +201,16 @@ def generate_classic(size=9, difficulty='medium'):
         box_w, box_h = 3, 3
     elif size == 16:
         box_w, box_h = 4, 4
-        # Para 16×16, generar directamente con backtracking (sin MAX_ITERATIONS)
-        # guardando estado previo y restaurándolo
-        old_max = globals()['MAX_ITERATIONS']
-        globals()['MAX_ITERATIONS'] = 5000000  # Aumentar para 16x16
-
-        solution = [[0] * 16 for _ in range(16)]
-        _solve(solution, 16, box_w, box_h)
-
-        globals()['MAX_ITERATIONS'] = old_max  # Restaurar
-
-        # Validar solución
-        if _validate_sudoku(solution, 16, box_w, box_h):
-            clues = 110 if difficulty == 'easy' else 90 if difficulty == 'medium' else 70
-            puzzle = _remove_cells(copy.deepcopy(solution), solution, 16, box_w, box_h, clues)
-            return puzzle, solution
-        else:
-            # Fallback: generar con método estándar
-            solution = [[0] * 16 for _ in range(16)]
-            _solve(solution, 16, box_w, box_h)
-            clues = 90
-            puzzle = _remove_cells(copy.deepcopy(solution), solution, 16, box_w, box_h, clues)
-            return puzzle, solution
+        # Para 16×16 usamos el método rápido por template (siempre válido), en vez de
+        # backtracking (que ocasionalmente agotaba iteraciones y daba tablero inválido).
+        solution = _generate_latin_square_fast(16, box_w, box_h)
+        for _ in range(5):
+            if _validate_sudoku(solution, 16, box_w, box_h):
+                break
+            solution = _generate_latin_square_fast(16, box_w, box_h)
+        clues = 110 if difficulty == 'easy' else 90 if difficulty == 'medium' else 70
+        puzzle = _remove_cells(copy.deepcopy(solution), solution, 16, box_w, box_h, clues)
+        return puzzle, solution
     elif size == 12:
         box_w, box_h = 4, 3
     else:
@@ -282,11 +270,27 @@ def _generate_latin_square_fast(size, box_w, box_h):
         return grid
 
 
+def _diagonals_ok(grid, size):
+    full = set(range(1, size + 1))
+    d1 = {grid[i][i] for i in range(size)}
+    d2 = {grid[i][size - 1 - i] for i in range(size)}
+    return d1 == full and d2 == full
+
+
 def generate_x(difficulty='medium'):
     """Sudoku X — adds diagonal constraints."""
     size, box_w, box_h = 9, 3, 3
-    grid = [[0] * size for _ in range(size)]
-    _solve(grid, size, box_w, box_h, diags=True)
+    # Reintentar hasta obtener una solución válida (el backtracking con diagonales
+    # ocasionalmente agotaba iteraciones y devolvía un tablero incompleto/ inválido).
+    grid = None
+    for _ in range(10):
+        g = [[0] * size for _ in range(size)]
+        _solve(g, size, box_w, box_h, diags=True)
+        if _validate_sudoku(g, size, box_w, box_h) and _diagonals_ok(g, size):
+            grid = g
+            break
+    if grid is None:
+        grid = g
     solution = copy.deepcopy(grid)
     clues = DIFFICULTY_CLUES[9].get(difficulty, 30) - 3
     puzzle = _remove_cells(grid, solution, size, box_w, box_h, clues, diags=True)
