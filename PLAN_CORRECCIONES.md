@@ -41,13 +41,14 @@ Leyenda estado: ⬜ pendiente · 🟦 en progreso · ✅ hecho
   `size` casillas (tallado arcoíris sobre solución válida); solución sobre la misma
   plantilla con regiones. Cuadrícula interna fina + regiones/borde gruesos.
 
-## FASE C — Lógica / aritmética
+## FASE C — Lógica / aritmética (en progreso)
 - ⬜ **6** KenKen: jaula de cálculo con línea gris interior (más fina que borde negro).
 - ⬜ **7** Futoshiki: pistas numéricas en gris; trasladar a solución.
-- ⬜ **8** Hitori: revisar lógica (bug), instrucciones del PDF, solución negro=eliminadas.
-  Tamaños 10×10 y 20×14.
-- ⬜ **12** Nurikabe: plantilla 15×10, corregir lógica (números adyacentes), más
-  casillas en difícil, solución pinta muro de negro.
+- ✅ **8** Hitori: generador válido (dup. fila+columna, negras no adyacentes, blancas
+  conectadas); tamaños 10×10 y 20×14; solución = celdas negras. (commit a108da5)
+- ✅ **12** Nurikabe: generador válido (malla que cubre cada 2×2 ⇒ sin piscinas;
+  océano conectado; islas separadas); 15×10; solución = muro negro. (commit 159ecd7)
+  Nota: el nº de islas sale alto (~18-24); ajustable si se quiere menos denso.
 
 ## FASE D — Redes / bucles
 - ⬜ **9** Hashi: cuadrícula gris; solución traza puentes (líneas dobles). Tamaños 20×14, 18×25.
