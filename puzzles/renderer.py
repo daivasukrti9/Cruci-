@@ -126,6 +126,9 @@ def render_sudoku(puzzle, solution, size=9, style='flat', stroke_width=1.5,
     svg = _svg_header(W, H)
 
     SHADE = '#d9d9d9'
+    # El Asesino (con jaulas) adopta el diseño del KenKen: cuadrícula en GRIS y las
+    # jaulas en NEGRO grueso, que se entiende mucho mejor.
+    grid_color = '#a8a8a8' if cages else st['stroke']
 
     def _is_given(r, c):
         return puzzle[r][c] not in (0, '', None)
@@ -148,7 +151,7 @@ def render_sudoku(puzzle, solution, size=9, style='flat', stroke_width=1.5,
                 svg += _iso_box(x, y, cell, cell, depth // 2,
                                  fill, st['iso_shade'], st['stroke'], st['stroke_width'])
             else:
-                svg += _rect(x, y, cell, cell, fill, st['stroke'], st['stroke_width'])
+                svg += _rect(x, y, cell, cell, fill, grid_color, st['stroke_width'])
 
             if show_solution:
                 val = solution[r][c]
@@ -171,11 +174,11 @@ def render_sudoku(puzzle, solution, size=9, style='flat', stroke_width=1.5,
         # Horizontal line
         svg += (f'<line x1="{margin}" y1="{margin + i*cell}" '
                 f'x2="{margin + size*cell}" y2="{margin + i*cell}" '
-                f'stroke="{st["stroke"]}" stroke-width="{sw_r}"/>\n')
+                f'stroke="{grid_color}" stroke-width="{sw_r}"/>\n')
         # Vertical line
         svg += (f'<line x1="{margin + i*cell}" y1="{margin}" '
                 f'x2="{margin + i*cell}" y2="{margin + size*cell}" '
-                f'stroke="{st["stroke"]}" stroke-width="{sw_c}"/>\n')
+                f'stroke="{grid_color}" stroke-width="{sw_c}"/>\n')
 
     # Draw Jigsaw region borders
     if regions:
@@ -195,9 +198,9 @@ def render_sudoku(puzzle, solution, size=9, style='flat', stroke_width=1.5,
                             f'x2="{margin+(c+1)*cell}" y2="{y1}" '
                             f'stroke="{st["stroke"]}" stroke-width="{bsw}"/>\n')
 
-    # Jaulas del Asesino: contorno punteado INSET (dentro de las celdas, bien visible)
+    # Jaulas del Asesino: contorno NEGRO grueso hacia adentro (inset), como el KenKen.
     if cages:
-        inset = 4
+        inset = 5
         for cage in cages:
             cage_cells = set(map(tuple, cage['cells']))
             for (r, c) in cage_cells:
@@ -206,13 +209,13 @@ def render_sudoku(puzzle, solution, size=9, style='flat', stroke_width=1.5,
                 x0, y0 = x + inset, y + inset
                 x1, y1 = x + cell - inset, y + cell - inset
                 if (r-1, c) not in cage_cells:
-                    svg += _dash(x0, y0, x1, y0, st['stroke'])
+                    svg += _cage_line(x0, y0, x1, y0, color='#000000', sw=2.2)
                 if (r+1, c) not in cage_cells:
-                    svg += _dash(x0, y1, x1, y1, st['stroke'])
+                    svg += _cage_line(x0, y1, x1, y1, color='#000000', sw=2.2)
                 if (r, c-1) not in cage_cells:
-                    svg += _dash(x0, y0, x0, y1, st['stroke'])
+                    svg += _cage_line(x0, y0, x0, y1, color='#000000', sw=2.2)
                 if (r, c+1) not in cage_cells:
-                    svg += _dash(x1, y0, x1, y1, st['stroke'])
+                    svg += _cage_line(x1, y0, x1, y1, color='#000000', sw=2.2)
             # Etiqueta de la suma en la celda superior-izquierda de la jaula
             min_cell = min(cage['cells'], key=lambda p: (p[0], p[1]))
             lx = margin + min_cell[1] * cell + inset + 1
