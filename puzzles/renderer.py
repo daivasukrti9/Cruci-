@@ -318,31 +318,33 @@ def render_word_search(grid, solution_grid, placed_words, word_positions,
 
 def render_kenken(puzzle, solution, cages, size, style='flat', stroke_width=1.5,
                   show_solution=False):
-    """KenKen sobre la MISMA plantilla. Las jaulas de cálculo se marcan con una
-    línea GRIS fina (más delgada que el borde negro de las celdas), hacia adentro.
-    La solución muestra todos los números sobre esa misma plantilla."""
+    """KenKen sobre la MISMA plantilla. La cuadrícula de celdas va en GRIS y las
+    jaulas de cálculo se marcan con una línea NEGRA gruesa hacia adentro, para que
+    resalten (mejor legibilidad). La solución usa esa misma plantilla."""
     st = {**STYLES.get(style, STYLES['flat']), 'stroke_width': stroke_width}
     cell = 60
     margin = 30
+    grid_gray = '#a8a8a8'                 # cuadrícula en gris
+    cage_black = '#000000'                # jaulas en negro
     W = margin * 2 + cell * size
     H = margin * 2 + cell * size
     svg = _svg_header(W, H)
 
-    # Celdas (blanco, borde negro) + números (en la solución todos son respuesta)
+    # Celdas (borde GRIS) + números (en la solución todos son respuesta)
     for r in range(size):
         for c in range(size):
             x = margin + c * cell
             y = margin + r * cell
-            svg += _rect(x, y, cell, cell, st['fill_empty'], st['stroke'], st['stroke_width'])
+            svg += _rect(x, y, cell, cell, st['fill_empty'], grid_gray, 1.0)
             val = solution[r][c] if show_solution else puzzle[r][c]
             if val:
                 svg += _text(x + cell / 2, y + cell / 2 + 2, str(val),
                              st['font'], cell * 0.45, bold=show_solution)
 
-    # Borde externo negro grueso
-    svg += _rect(margin, margin, cell * size, cell * size, 'none', st['stroke'], st['stroke_width'] * 3)
+    # Borde externo (gris, marco)
+    svg += _rect(margin, margin, cell * size, cell * size, 'none', grid_gray, 2.0)
 
-    # Jaulas: contorno GRIS fino hacia adentro (inset) + etiqueta de la operación
+    # Jaulas: contorno NEGRO grueso hacia adentro (inset) + etiqueta de la operación
     inset = 5
     for cage in cages:
         cage_cells = set(map(tuple, cage['cells']))
@@ -352,13 +354,13 @@ def render_kenken(puzzle, solution, cages, size, style='flat', stroke_width=1.5,
             x0, y0 = x + inset, y + inset
             x1, y1 = x + cell - inset, y + cell - inset
             if (r - 1, c) not in cage_cells:
-                svg += _cage_line(x0, y0, x1, y0)
+                svg += _cage_line(x0, y0, x1, y0, color=cage_black, sw=2.5)
             if (r + 1, c) not in cage_cells:
-                svg += _cage_line(x0, y1, x1, y1)
+                svg += _cage_line(x0, y1, x1, y1, color=cage_black, sw=2.5)
             if (r, c - 1) not in cage_cells:
-                svg += _cage_line(x0, y0, x0, y1)
+                svg += _cage_line(x0, y0, x0, y1, color=cage_black, sw=2.5)
             if (r, c + 1) not in cage_cells:
-                svg += _cage_line(x1, y0, x1, y1)
+                svg += _cage_line(x1, y0, x1, y1, color=cage_black, sw=2.5)
         op_sym = {'*': '×', '/': '÷', '=': ''}.get(cage['op'], cage['op'])
         label = f'{cage["target"]}{op_sym}'
         min_cell = min(cage['cells'], key=lambda p: (p[0], p[1]))
@@ -599,9 +601,10 @@ def render_futoshiki(puzzle, solution, inequalities, style='flat',
                      stroke_width=1.5, show_solution=False):
     st = {**STYLES.get(style, STYLES['flat']), 'stroke_width': stroke_width}
     size = len(puzzle)
-    cell = 55
-    gap = 20
+    cell = 44            # cuadros más pequeños
+    gap = 26             # más espacio para símbolos grandes de mayor/menor
     margin = 30
+    sym_size = 28        # símbolos < > ∧ ∨ grandes (accesibilidad)
     W = margin * 2 + size * cell + (size - 1) * gap
     H = margin * 2 + size * cell + (size - 1) * gap
     svg = _svg_header(W, H)
@@ -619,10 +622,10 @@ def render_futoshiki(puzzle, solution, inequalities, style='flat',
                 val = solution[r][c]
                 if val:
                     svg += _text(x + cell/2, y + cell/2, str(val), st['font'],
-                                 cell * 0.5, bold=not given, color='#000000')
+                                 cell * 0.56, bold=not given, color='#000000')
             elif given:
                 svg += _text(x + cell/2, y + cell/2, str(puzzle[r][c]), st['font'],
-                             cell * 0.5, bold=False, color='#000000')
+                             cell * 0.56, bold=False, color='#000000')
 
     # Inequalities
     for ineq in inequalities:
@@ -632,11 +635,11 @@ def render_futoshiki(puzzle, solution, inequalities, style='flat',
         if r1 == r2:  # horizontal: (r1,c1) es la celda de la izquierda
             x = margin + c1 * (cell + gap) + cell + gap / 2
             y = margin + r1 * (cell + gap) + cell / 2
-            svg += _text(x, y, _ineq_symbol(op, vertical=False), st['font_bold'], 16, bold=True)
+            svg += _text(x, y, _ineq_symbol(op, vertical=False), st['font_bold'], sym_size, bold=True)
         else:  # vertical: (r1,c1) es la celda de ARRIBA
             x = margin + c1 * (cell + gap) + cell / 2
             y = margin + r1 * (cell + gap) + cell + gap / 2
-            svg += _text(x, y, _ineq_symbol(op, vertical=True), st['font_bold'], 16, bold=True)
+            svg += _text(x, y, _ineq_symbol(op, vertical=True), st['font_bold'], sym_size, bold=True)
 
     svg += _svg_footer()
     return svg
