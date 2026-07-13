@@ -561,16 +561,8 @@ def render_hitori(puzzle, solution, style='flat', stroke_width=1.5, show_solutio
 # ─── NURIKABE ────────────────────────────────────────────────────────────────
 
 def render_nurikabe(puzzle, solution, style='flat', stroke_width=1.5, show_solution=False):
-    if show_solution:
-        sol_text = []
-        for r in range(len(solution)):
-            row_text = []
-            for c in range(len(solution[0])):
-                v = solution[r][c]
-                row_text.append('■' if v == 0 else str(v))
-            sol_text.append(''.join(row_text))
-        return render_solution_table({'Solución': '\n'.join(sol_text)}, 'Nurikabe SOLUCIÓN')
-
+    """Nurikabe sobre la MISMA plantilla. Puzzle: solo las pistas numéricas.
+    Solución: el muro/océano en NEGRO y las islas blancas con su número."""
     st = {**STYLES.get(style, STYLES['flat']), 'stroke_width': stroke_width}
     rows = len(puzzle)
     cols = len(puzzle[0])

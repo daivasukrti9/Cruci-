@@ -97,54 +97,178 @@ def generate_hashi(rows=7, cols=7, num_islands=None):
 
 # ─── NURIKABE ────────────────────────────────────────────────────────────────
 
-def generate_nurikabe(rows=7, cols=7, num_islands=4):
-    """
-    Nurikabe: partition grid into white islands and a black river.
-    Returns (puzzle, solution) where values are 0=black, positive=island_size (clue cells), -1=white (non-clue)
-    """
-    grid = [[0]*cols for _ in range(rows)]  # 0 = black
-    islands = []
-    used = set()
+_NB_DIRS = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
-    for _ in range(num_islands):
-        # Pick random start not in used
-        candidates = [(r,c) for r in range(rows) for c in range(cols) if (r,c) not in used]
-        if not candidates:
-            break
-        start = random.choice(candidates)
-        size = random.randint(1, 4)
-        island_cells = [start]
-        used.add(start)
-        for _ in range(size - 1):
-            border = []
-            for r, c in island_cells:
-                for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:
-                    nr, nc = r+dr, c+dc
-                    if 0 <= nr < rows and 0 <= nc < cols and (nr,nc) not in used:
-                        border.append((nr,nc))
-            if not border:
-                break
-            nc_cell = random.choice(border)
-            island_cells.append(nc_cell)
-            used.add(nc_cell)
-        islands.append({'cells': island_cells, 'size': len(island_cells)})
 
-    # Build solution
-    solution = [[0]*cols for _ in range(rows)]  # 0=black by default
+def _nurikabe_ocean_ok(iid, rows, cols):
+    """El océano (celdas con iid == -1) debe ser UNA región conectada y SIN bloques
+    2×2 (piscinas)."""
+    ocean = [(r, c) for r in range(rows) for c in range(cols) if iid[r][c] == -1]
+    if len(ocean) < 2:
+        return False
+    # Sin piscinas 2×2
+    for r in range(rows - 1):
+        for c in range(cols - 1):
+            if (iid[r][c] == -1 and iid[r + 1][c] == -1
+                    and iid[r][c + 1] == -1 and iid[r + 1][c + 1] == -1):
+                return False
+    # Conectado
+    seen = {ocean[0]}
+    stack = [ocean[0]]
+    while stack:
+        r, c = stack.pop()
+        for dr, dc in _NB_DIRS:
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < rows and 0 <= nc < cols and iid[nr][nc] == -1 and (nr, nc) not in seen:
+                seen.add((nr, nc))
+                stack.append((nr, nc))
+    return len(seen) == len(ocean)
+
+
+def _creates_pool(ocean, r, c, rows, cols):
+    """True si marcar (r,c) como océano completa un bloque 2×2 de océano."""
+    for tr in (r - 1, r):
+        for tc in (c - 1, c):
+            if 0 <= tr and tr + 1 < rows and 0 <= tc and tc + 1 < cols:
+                if (ocean[tr][tc] and ocean[tr + 1][tc]
+                        and ocean[tr][tc + 1] and ocean[tr + 1][tc + 1]):
+                    return True
+    return False
+
+
+def _white_components(ocean, rows, cols):
+    """Componentes conexas de celdas blancas (islas)."""
+    seen = [[False] * cols for _ in range(rows)]
+    comps = []
+    for r in range(rows):
+        for c in range(cols):
+            if not ocean[r][c] and not seen[r][c]:
+                comp = [(r, c)]
+                seen[r][c] = True
+                st = [(r, c)]
+                while st:
+                    rr, cc = st.pop()
+                    for dr, dc in _NB_DIRS:
+                        nr, nc = rr + dr, cc + dc
+                        if (0 <= nr < rows and 0 <= nc < cols
+                                and not ocean[nr][nc] and not seen[nr][nc]):
+                            seen[nr][nc] = True
+                            comp.append((nr, nc))
+                            st.append((nr, nc))
+                comps.append(comp)
+    return comps
+
+
+def _ocean_connected(white, rows, cols):
+    """El océano (celdas NO blancas) es una sola región conectada."""
+    ocean = [(r, c) for r in range(rows) for c in range(cols) if not white[r][c]]
+    if not ocean:
+        return False
+    seen = {ocean[0]}
+    st = [ocean[0]]
+    while st:
+        r, c = st.pop()
+        for dr, dc in _NB_DIRS:
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < rows and 0 <= nc < cols and not white[nr][nc] and (nr, nc) not in seen:
+                seen.add((nr, nc))
+                st.append((nr, nc))
+    return len(seen) == len(ocean)
+
+
+def _white_islands(white, rows, cols):
+    """Componentes conexas de celdas blancas (cada una = una isla)."""
+    seen = [[False] * cols for _ in range(rows)]
+    comps = []
+    for r in range(rows):
+        for c in range(cols):
+            if white[r][c] and not seen[r][c]:
+                comp = [(r, c)]
+                seen[r][c] = True
+                st = [(r, c)]
+                while st:
+                    rr, cc = st.pop()
+                    for dr, dc in _NB_DIRS:
+                        nr, nc = rr + dr, cc + dc
+                        if (0 <= nr < rows and 0 <= nc < cols
+                                and white[nr][nc] and not seen[nr][nc]):
+                            seen[nr][nc] = True
+                            comp.append((nr, nc))
+                            st.append((nr, nc))
+                comps.append(comp)
+    return comps
+
+
+def _try_nurikabe(rows, cols, white_ratio, max_isize):
+    """Siembra una blanca en cada malla (r par, c par): garantiza que TODO bloque 2×2
+    tiene al menos una blanca ⇒ el océano nunca forma piscinas 2×2. Luego hace crecer
+    las blancas (sin desconectar el océano). Las componentes blancas son las islas."""
+    white = [[False] * cols for _ in range(rows)]
+    frontier = set()
+    for r in range(0, rows, 2):
+        for c in range(0, cols, 2):
+            white[r][c] = True
+    white_count = sum(row.count(True) for row in white)
+    # Frontera = celdas de océano adyacentes a alguna blanca (se mantiene incremental)
+    for r in range(rows):
+        for c in range(cols):
+            if white[r][c]:
+                for dr, dc in _NB_DIRS:
+                    nr, nc = r + dr, c + dc
+                    if 0 <= nr < rows and 0 <= nc < cols and not white[nr][nc]:
+                        frontier.add((nr, nc))
+    target = int(rows * cols * white_ratio)
+
+    while white_count < target and frontier:
+        r, c = random.choice(tuple(frontier))
+        frontier.discard((r, c))
+        white[r][c] = True
+        if not _ocean_connected(white, rows, cols):
+            white[r][c] = False        # habría partido el océano: descartar esta celda
+            continue
+        white_count += 1
+        for dr, dc in _NB_DIRS:
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < rows and 0 <= nc < cols and not white[nr][nc]:
+                frontier.add((nr, nc))
+
+    islands = _white_islands(white, rows, cols)
+    if len(islands) < 3 or any(len(i) > max_isize for i in islands):
+        return None
+
+    solution = [[0] * cols for _ in range(rows)]   # 0 = negro (océano)
+    puzzle = [[None] * cols for _ in range(rows)]
     for isl in islands:
-        for r, c in isl['cells']:
-            solution[r][c] = -1  # white (part of island)
-        # Mark clue cell (first cell) with size
-        r0, c0 = isl['cells'][0]
-        solution[r0][c0] = isl['size']
-
-    # Build puzzle (only clue cells visible, rest empty for player)
-    puzzle = [[None]*cols for _ in range(rows)]
-    for isl in islands:
-        r0, c0 = isl['cells'][0]
-        puzzle[r0][c0] = isl['size']
-
+        for (r, c) in isl:
+            solution[r][c] = -1
+        cr, cc = random.choice(isl)                # celda-pista al azar
+        solution[cr][cc] = len(isl)
+        puzzle[cr][cc] = len(isl)
     return puzzle, solution
+
+
+def generate_nurikabe(rows=15, cols=10, difficulty='medium'):
+    """
+    Nurikabe válido: islas blancas (cada una con su número = tamaño) separadas entre
+    sí por un único "muro"/océano negro conectado y SIN bloques 2×2.
+    Returns (puzzle, solution): puzzle solo muestra las pistas; en solution
+    0=negro (océano), n=celda-pista, -1=blanca de isla.
+    """
+    # "difícil" = islas más grandes (máximo por isla mayor); la densidad se mantiene
+    # moderada para que el océano siga conectado y la generación sea rápida.
+    white_ratio = {'easy': 0.40, 'medium': 0.44, 'hard': 0.47}.get(difficulty, 0.44)
+    max_isize = {'easy': 5, 'medium': 7, 'hard': 10}.get(difficulty, 7)
+    for _ in range(150):
+        res = _try_nurikabe(rows, cols, white_ratio, max_isize)
+        if res is not None:
+            return res
+    # Relajar progresivamente hasta garantizar un tablero válido.
+    for ratio, mx in [(0.42, 12), (0.40, 14), (0.38, 16)]:
+        for _ in range(80):
+            res = _try_nurikabe(rows, cols, ratio, mx)
+            if res is not None:
+                return res
+    return [[None] * cols for _ in range(rows)], [[0] * cols for _ in range(rows)]
 
 
 # ─── HITORI ──────────────────────────────────────────────────────────────────

@@ -206,9 +206,9 @@ def _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, cl
     # ── NURIKABE ──
     elif puzzle_id == 'nurikabe':
         from puzzles.logic_puzzles import generate_nurikabe
-        sz = size_param if isinstance(size_param, list) else [7, 7]
+        sz = size_param if isinstance(size_param, (list, tuple)) else [15, 10]
         rows, cols = int(sz[0]), int(sz[1])
-        puzzle, solution = generate_nurikabe(rows, cols)
+        puzzle, solution = generate_nurikabe(rows, cols, difficulty)
         puzzle_svg   = R.render_nurikabe(puzzle, solution, style, stroke_w, False)
         solution_svg = R.render_nurikabe(puzzle, solution, style, stroke_w, True)
         return {'puzzle_svg': puzzle_svg, 'solution_svg': solution_svg,

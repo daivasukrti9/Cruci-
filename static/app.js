@@ -40,7 +40,7 @@ const SIZE_OPTIONS = {
   hashi:    [{label:'5×5',value:[5,5]},{label:'7×7',value:[7,7]},{label:'9×9',value:[9,9]},{label:'10×10',value:[10,10]}],
   masyu:    [{label:'6×6',value:[6,6]},{label:'7×7',value:[7,7]},{label:'9×9',value:[9,9]}],
   akari:    [{label:'6×6',value:[6,6]},{label:'7×7',value:[7,7]},{label:'9×9',value:[9,9]}],
-  nurikabe: [{label:'6×6',value:[6,6]},{label:'7×7',value:[7,7]},{label:'9×9',value:[9,9]}],
+  nurikabe: [{label:'15×10',value:[15,10]}],
   crossword:[{label:'13×13',value:13},{label:'15×15',value:15},{label:'17×17',value:17},{label:'21×21',value:21}],
   word_search:[{label:'10×10',value:10},{label:'12×12',value:12},{label:'15×15',value:15},{label:'17×17',value:17},{label:'20×20',value:20}],
   maze_rect:[{label:'10×10',value:[10,10]},{label:'15×15',value:[15,15]},{label:'20×20',value:[20,20]},{label:'25×25',value:[25,25]}],

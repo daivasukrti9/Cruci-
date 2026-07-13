@@ -63,3 +63,63 @@ def test_hitori_valido(rows, cols):
     puzzle, solution = L.generate_hitori(rows, cols)
     err = _hitori_checks(puzzle, solution)
     assert err is None, f"Hitori {rows}×{cols} inválido: {err}"
+
+
+# ─── NURIKABE ────────────────────────────────────────────────────────────────
+
+def _nurikabe_checks(solution):
+    rows = len(solution)
+    cols = len(solution[0])
+    dirs = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    ocean = [(r, c) for r in range(rows) for c in range(cols) if solution[r][c] == 0]
+
+    # 1) Océano sin bloques 2×2
+    for r in range(rows - 1):
+        for c in range(cols - 1):
+            if all(solution[r + a][c + b] == 0 for a in (0, 1) for b in (0, 1)):
+                return "océano con bloque 2×2"
+
+    # 2) Océano conectado (una sola región)
+    if ocean:
+        seen = {ocean[0]}
+        st = [ocean[0]]
+        while st:
+            r, c = st.pop()
+            for dr, dc in dirs:
+                nr, nc = r + dr, c + dc
+                if 0 <= nr < rows and 0 <= nc < cols and solution[nr][nc] == 0 and (nr, nc) not in seen:
+                    seen.add((nr, nc))
+                    st.append((nr, nc))
+        if len(seen) != len(ocean):
+            return "océano desconectado"
+
+    # 3) Cada isla (componente blanca) tiene EXACTAMENTE una pista = su tamaño
+    seen = [[False] * cols for _ in range(rows)]
+    for r in range(rows):
+        for c in range(cols):
+            if solution[r][c] != 0 and not seen[r][c]:
+                comp = [(r, c)]
+                seen[r][c] = True
+                st = [(r, c)]
+                while st:
+                    rr, cc = st.pop()
+                    for dr, dc in dirs:
+                        nr, nc = rr + dr, cc + dc
+                        if (0 <= nr < rows and 0 <= nc < cols
+                                and solution[nr][nc] != 0 and not seen[nr][nc]):
+                            seen[nr][nc] = True
+                            comp.append((nr, nc))
+                            st.append((nr, nc))
+                clues = [solution[rr][cc] for rr, cc in comp if solution[rr][cc] > 0]
+                if len(clues) != 1:
+                    return f"isla con {len(clues)} pistas"
+                if clues[0] != len(comp):
+                    return f"pista {clues[0]} != tamaño {len(comp)}"
+    return None
+
+
+@pytest.mark.parametrize("difficulty", ["easy", "medium", "hard"])
+def test_nurikabe_valido(difficulty):
+    puzzle, solution = L.generate_nurikabe(15, 10, difficulty)
+    err = _nurikabe_checks(solution)
+    assert err is None, f"Nurikabe {difficulty} inválido: {err}"
