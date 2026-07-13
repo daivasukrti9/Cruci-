@@ -52,10 +52,14 @@ Leyenda estado: ⬜ pendiente · 🟦 en progreso · ✅ hecho
   océano conectado; islas separadas); 15×10; solución = muro negro. (commit 159ecd7)
   Nota: el nº de islas sale alto (~18-24); ajustable si se quiere menos denso.
 
-## FASE D — Redes / bucles
-- ⬜ **9** Hashi: cuadrícula gris; solución traza puentes (líneas dobles). Tamaños 20×14, 18×25.
-- ⬜ **10** Masyu: tamaños 20×14, 18×25; más perlas en difícil; solución traza el bucle.
-- ⬜ **11** Akari: tamaños 12×12, 20×20; más casillas en difícil; solución sobre plantilla.
+## FASE D — Redes / bucles ✅ (commits 0bd3ee1, 68576ea, 19e67eb)
+- ✅ **9** Hashi: generador válido (grafo conexo, puentes sin cruces); cuadrícula gris,
+  islas en cuadros redondeados, solución con puentes dobles. Tamaños 20×14, 18×25.
+- ✅ **10** Masyu: generador válido (bucle orgánico vía backbite + perlas correctas);
+  más perlas en difícil; solución traza el bucle. Tamaños 20×14, 18×25.
+- ✅ **11** Akari: generador válido (iluminación total, sin conflictos); solución con
+  bombillas + celdas iluminadas sombreadas. Tamaños 12×12, 20×20.
+- Nota KDP: formato/tamaños finales al cierre (el usuario ajusta luego).
 
 ## FASE E — Palabras
 - ⬜ **13** Crucigrama: solución rellena casillas con las palabras.
