@@ -41,9 +41,11 @@ Leyenda estado: ⬜ pendiente · 🟦 en progreso · ✅ hecho
   `size` casillas (tallado arcoíris sobre solución válida); solución sobre la misma
   plantilla con regiones. Cuadrícula interna fina + regiones/borde gruesos.
 
-## FASE C — Lógica / aritmética (en progreso)
-- ⬜ **6** KenKen: jaula de cálculo con línea gris interior (más fina que borde negro).
-- ⬜ **7** Futoshiki: pistas numéricas en gris; trasladar a solución.
+## FASE C — Lógica / aritmética ✅ (commits a108da5, 159ecd7, de1d058)
+- ✅ **6** KenKen: jaulas con línea gris fina inset (más delgada que el borde negro);
+  operaciones con símbolos propios (× ÷); solución sobre la misma plantilla.
+- ✅ **7** Futoshiki: pistas dadas en gris, respuestas en negro/negrita; misma plantilla.
+  (De paso: arreglado bug que rompía el SVG por los signos < > sin escapar.)
 - ✅ **8** Hitori: generador válido (dup. fila+columna, negras no adyacentes, blancas
   conectadas); tamaños 10×10 y 20×14; solución = celdas negras. (commit a108da5)
 - ✅ **12** Nurikabe: generador válido (malla que cubre cada 2×2 ⇒ sin piscinas;
