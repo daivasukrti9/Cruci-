@@ -149,27 +149,84 @@ def generate_nurikabe(rows=7, cols=7, num_islands=4):
 
 # ─── HITORI ──────────────────────────────────────────────────────────────────
 
-def generate_hitori(size=6):
-    """
-    Hitori puzzle.
-    Returns (puzzle, solution) where solution has -1 for blacked-out cells.
-    """
-    from puzzles.kenken import _latin_square
-    base = _latin_square(size)
-    solution = copy.deepcopy(base)
+def _hitori_white_connected(black, rows, cols):
+    """True si todas las celdas blancas forman una sola región conectada."""
+    whites = [(r, c) for r in range(rows) for c in range(cols) if not black[r][c]]
+    if not whites:
+        return False
+    seen = {whites[0]}
+    stack = [whites[0]]
+    while stack:
+        r, c = stack.pop()
+        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < rows and 0 <= nc < cols and not black[nr][nc] and (nr, nc) not in seen:
+                seen.add((nr, nc))
+                stack.append((nr, nc))
+    return len(seen) == len(whites)
 
-    # Randomly add duplicates in rows and cols, then mark one as black
-    black = [[False]*size for _ in range(size)]
-    for r in range(size):
-        if random.random() < 0.4:
-            c1, c2 = random.sample(range(size), 2)
-            base[r][c2] = base[r][c1]
-            black[r][c2] = True
 
-    # Build puzzle from base (with duplicates) and solution
-    puzzle = base
-    sol = [[solution[r][c] if not black[r][c] else -1 for c in range(size)] for r in range(size)]
-    return puzzle, sol
+def _choose_hitori_blacks(rows, cols, ratio=0.20):
+    """Elige celdas a tachar cumpliendo las reglas de Hitori:
+    - ninguna dos negras ortogonalmente adyacentes,
+    - las blancas quedan todas conectadas."""
+    black = [[False] * cols for _ in range(rows)]
+    target = int(rows * cols * ratio)
+    cells = [(r, c) for r in range(rows) for c in range(cols)]
+    random.shuffle(cells)
+    count = 0
+    for r, c in cells:
+        if count >= target:
+            break
+        # No puede ser adyacente a otra negra
+        if any(0 <= r + dr < rows and 0 <= c + dc < cols and black[r + dr][c + dc]
+               for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]):
+            continue
+        black[r][c] = True
+        if not _hitori_white_connected(black, rows, cols):
+            black[r][c] = False   # rompería la conectividad de las blancas
+            continue
+        count += 1
+    return black
+
+
+def generate_hitori(rows=10, cols=None):
+    """
+    Hitori válido. Reglas: tachar (negro) celdas para que ninguna fila/columna tenga
+    números repetidos entre las blancas; las negras no pueden tocarse ortogonalmente;
+    las blancas deben quedar conectadas.
+
+    Estrategia: se parte de una base SIN repeticiones (blancas válidas), se eligen
+    las celdas negras (no adyacentes + blancas conectadas) y se cambia el valor de
+    cada negra por un duplicado de una blanca de su fila o columna (así el jugador
+    deduce que debe tacharla).
+
+    Returns (puzzle, solution) con solution[r][c] = -1 en las negras, valor en blancas.
+    """
+    if cols is None:
+        cols = rows
+    M = max(rows, cols)
+    perm = list(range(1, M + 1))
+    random.shuffle(perm)
+    # Base tipo latino: perm[(r+c) % M] => sin repetidos en ninguna fila ni columna
+    base = [[perm[(r + c) % M] for c in range(cols)] for r in range(rows)]
+
+    black = _choose_hitori_blacks(rows, cols)
+
+    puzzle = [row[:] for row in base]
+    for r in range(rows):
+        for c in range(cols):
+            if not black[r][c]:
+                continue
+            # Duplicar el valor de una blanca de la misma fila o columna
+            cands = [base[r][cc] for cc in range(cols) if cc != c and not black[r][cc]]
+            cands += [base[rr][c] for rr in range(rows) if rr != r and not black[rr][c]]
+            if cands:
+                puzzle[r][c] = random.choice(cands)
+
+    solution = [[-1 if black[r][c] else base[r][c] for c in range(cols)]
+                for r in range(rows)]
+    return puzzle, solution
 
 
 # ─── AKARI (Light Up) ────────────────────────────────────────────────────────

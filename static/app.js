@@ -36,7 +36,7 @@ const SIZE_OPTIONS = {
   sudoku_12x12:          [{label:'12×12', value:12}],
   kenken:   [{label:'3×3',v:3},{label:'4×4',v:4},{label:'5×5',v:5},{label:'6×6',v:6},{label:'7×7',v:7},{label:'8×8',v:8}].map(o=>({label:o.label,value:o.v})),
   futoshiki:[{label:'4×4',value:4},{label:'5×5',value:5},{label:'6×6',value:6},{label:'7×7',value:7}],
-  hitori:   [{label:'5×5',value:5},{label:'6×6',value:6},{label:'7×7',value:7},{label:'8×8',value:8}],
+  hitori:   [{label:'10×10',value:[10,10]},{label:'20×14',value:[20,14]}],
   hashi:    [{label:'5×5',value:[5,5]},{label:'7×7',value:[7,7]},{label:'9×9',value:[9,9]},{label:'10×10',value:[10,10]}],
   masyu:    [{label:'6×6',value:[6,6]},{label:'7×7',value:[7,7]},{label:'9×9',value:[9,9]}],
   akari:    [{label:'6×6',value:[6,6]},{label:'7×7',value:[7,7]},{label:'9×9',value:[9,9]}],

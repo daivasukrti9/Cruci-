@@ -527,6 +527,37 @@ def render_hashi(islands, bridges, rows=7, cols=7, style='flat',
     return svg
 
 
+# ─── HITORI ──────────────────────────────────────────────────────────────────
+
+def render_hitori(puzzle, solution, style='flat', stroke_width=1.5, show_solution=False):
+    """Hitori sobre la MISMA plantilla. Puzzle: todos los números. Solución: las
+    celdas tachadas van en NEGRO con el número en blanco; las blancas normales."""
+    st = {**STYLES.get(style, STYLES['flat']), 'stroke_width': stroke_width}
+    rows = len(puzzle)
+    cols = len(puzzle[0])
+    cell = 44
+    margin = 20
+    W = margin * 2 + cols * cell
+    H = margin * 2 + rows * cell
+    svg = _svg_header(W, H)
+
+    for r in range(rows):
+        for c in range(cols):
+            x = margin + c * cell
+            y = margin + r * cell
+            is_black = show_solution and solution[r][c] == -1
+            fill = st['fill_black'] if is_black else st['fill_empty']
+            svg += _rect(x, y, cell, cell, fill, st['stroke'], st['stroke_width'])
+            val = puzzle[r][c]
+            if val is not None and val != '':
+                color = '#ffffff' if is_black else '#000000'
+                svg += _text(x + cell / 2, y + cell / 2, str(val),
+                             st['font'], cell * 0.42, bold=False, color=color)
+
+    svg += _svg_footer()
+    return svg
+
+
 # ─── NURIKABE ────────────────────────────────────────────────────────────────
 
 def render_nurikabe(puzzle, solution, style='flat', stroke_width=1.5, show_solution=False):

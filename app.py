@@ -156,12 +156,15 @@ def _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, cl
     # ── HITORI ──
     elif puzzle_id == 'hitori':
         from puzzles.logic_puzzles import generate_hitori
-        size = int(size_param) if isinstance(size_param, (int, str)) else 6
-        puzzle, solution = generate_hitori(size)
-        puzzle_svg   = R.render_nurikabe(puzzle, solution, style, stroke_w, False)
-        solution_svg = R.render_nurikabe(puzzle, solution, style, stroke_w, True)
+        if isinstance(size_param, (list, tuple)):
+            rows, cols = int(size_param[0]), int(size_param[1])
+        else:
+            rows = cols = int(size_param)
+        puzzle, solution = generate_hitori(rows, cols)
+        puzzle_svg   = R.render_hitori(puzzle, solution, style, stroke_w, False)
+        solution_svg = R.render_hitori(puzzle, solution, style, stroke_w, True)
         return {'puzzle_svg': puzzle_svg, 'solution_svg': solution_svg,
-                'title': f'Hitori {size}×{size}',
+                'title': f'Hitori {rows}×{cols}',
                 'instructions': _instr('hitori')}
 
     # ── HASHI ──
