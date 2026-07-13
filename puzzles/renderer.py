@@ -64,6 +64,15 @@ def _cage_line(x1, y1, x2, y2, color='#888888', sw=1.0):
             f'stroke="{color}" stroke-width="{sw}"/>\n')
 
 
+def _ineq_symbol(op, vertical):
+    """Símbolo de desigualdad de Futoshiki. `op` es la relación de la primera celda
+    (izquierda si horizontal, ARRIBA si vertical) respecto a la segunda. El vértice
+    del símbolo apunta al número MENOR. `<`/`>` se escapan para no romper el SVG."""
+    if vertical:
+        return '∧' if op == '<' else '∨'   # arriba<abajo => vértice arriba (∧)
+    return '&lt;' if op == '<' else '&gt;'
+
+
 def _iso_box(x, y, w, h, depth, fill, shade, stroke, sw):
     """Draw an isometric-style box (flat top with right and bottom faces)."""
     svg = ''
@@ -597,9 +606,9 @@ def render_futoshiki(puzzle, solution, inequalities, style='flat',
     H = margin * 2 + size * cell + (size - 1) * gap
     svg = _svg_header(W, H)
 
-    # Celdas: las PISTAS numéricas (números dados) van en GRIS; las respuestas que
-    # se completan en la solución van en negro y negrita. Misma plantilla en ambas.
-    clue_gray = '#999999'
+    # Celdas: las PISTAS numéricas (números dados) van en negro NORMAL; las respuestas
+    # que se completan en la solución van en negro y NEGRITA. Así se distinguen igual
+    # que en el Sudoku (pista normal vs respuesta en negrita). Misma plantilla en ambas.
     for r in range(size):
         for c in range(size):
             x = margin + c * (cell + gap)
@@ -609,28 +618,25 @@ def render_futoshiki(puzzle, solution, inequalities, style='flat',
             if show_solution:
                 val = solution[r][c]
                 if val:
-                    color = clue_gray if given else '#000000'
                     svg += _text(x + cell/2, y + cell/2, str(val), st['font'],
-                                 cell * 0.5, bold=not given, color=color)
+                                 cell * 0.5, bold=not given, color='#000000')
             elif given:
                 svg += _text(x + cell/2, y + cell/2, str(puzzle[r][c]), st['font'],
-                             cell * 0.5, bold=False, color=clue_gray)
+                             cell * 0.5, bold=False, color='#000000')
 
     # Inequalities
     for ineq in inequalities:
         r1, c1 = ineq['r1'], ineq['c1']
         r2, c2 = ineq['r2'], ineq['c2']
         op = ineq['op']
-        if r1 == r2:  # horizontal: escapar < y > (romperían el SVG como texto crudo)
+        if r1 == r2:  # horizontal: (r1,c1) es la celda de la izquierda
             x = margin + c1 * (cell + gap) + cell + gap / 2
             y = margin + r1 * (cell + gap) + cell / 2
-            sym = '&lt;' if op == '<' else '&gt;'
-            svg += _text(x, y, sym, st['font_bold'], 16, bold=True)
-        else:  # vertical: mostrar el signo girado (∧/∨)
+            svg += _text(x, y, _ineq_symbol(op, vertical=False), st['font_bold'], 16, bold=True)
+        else:  # vertical: (r1,c1) es la celda de ARRIBA
             x = margin + c1 * (cell + gap) + cell / 2
             y = margin + r1 * (cell + gap) + cell + gap / 2
-            sym = '∨' if op == '<' else '∧'   # ∨ / ∧
-            svg += _text(x, y, sym, st['font_bold'], 16, bold=True)
+            svg += _text(x, y, _ineq_symbol(op, vertical=True), st['font_bold'], 16, bold=True)
 
     svg += _svg_footer()
     return svg

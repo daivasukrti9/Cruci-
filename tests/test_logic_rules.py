@@ -178,3 +178,12 @@ def test_futoshiki_valido(size):
     # El SVG debe ser XML válido (regresión del bug de < y > sin escapar)
     ET.fromstring(R.render_futoshiki(puzzle, solution, ineqs, 'flat', 1.5, False))
     ET.fromstring(R.render_futoshiki(puzzle, solution, ineqs, 'flat', 1.5, True))
+
+
+def test_futoshiki_simbolo_desigualdad():
+    """El vértice del símbolo apunta al menor (regresión del bug vertical invertido).
+    Horizontal: (izq) op (der). Vertical: (arriba) op (abajo)."""
+    assert R._ineq_symbol('<', vertical=False) == '&lt;'   # izq < der
+    assert R._ineq_symbol('>', vertical=False) == '&gt;'   # izq > der
+    assert R._ineq_symbol('<', vertical=True) == '∧'       # arriba < abajo => vértice arriba
+    assert R._ineq_symbol('>', vertical=True) == '∨'       # arriba > abajo => vértice abajo
