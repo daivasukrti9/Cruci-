@@ -2,6 +2,37 @@
 
 Fuente: "Correcciones aplicacion Cruci.txt" + referencia `Diseños/Crucigramas Lista.pdf`.
 
+---
+
+## ▶️ PUNTO DE CONTINUACIÓN (leer primero al abrir sesión nueva)
+
+**Última actualización:** 2026-07-13 · **Git limpio, todo commiteado.** Último commit: `52472da`.
+
+**Estado global:**
+- ✅ **Fase A, B, C** — hechas.
+- ✅ **Fase D (Hashi, Masyu, Akari)** — generadores válidos, tamaños puestos,
+  diseño estilo KenKen, y **dificultad diferenciada** (rangos amplios, Masyu corregido).
+- ✅ **Sudoku Asesino** — adopta diseño KenKen.
+
+**Lo que falta (en orden):**
+1. **Fase E — Palabras:**
+   - #13 Crucigrama: la solución rellena las celdas con las palabras.
+   - #14 Sopa de Letras: solución sobre plantilla (celdas negras + letras blancas).
+     Dificultad: fácil = H/V; media = H/V ambos sentidos; difícil = + diagonales ambos sentidos.
+2. **Fase F — Laberintos (al final, por decisión del usuario):**
+   - #15 Rectangular, #16 Hexagonal, #17 Circular, #18 Triangular (rediseños; nivel Kids solo aquí).
+   - #19 Weave/Bridge maze (NUEVO), #20 Round Bridge maze (NUEVO).
+3. **Formato/tamaño KDP final** — aplazado a lo último por decisión del usuario
+   (KDP ya validado y soportado en `exporter.py`: 6x9/8.5x11/7x10, bleed, márgenes espejo, 300 DPI).
+4. **(Opcional, recomendado) Solver + unicidad + rating de dificultad** para juegos lógicos
+   (Hashi/Masyu/Akari). Hoy la dificultad se controla por *proxies* (nº de pistas); los niveles
+   difíciles muy escasos pueden no tener solución única. La solución impresa siempre es válida.
+
+**Cómo arrancar la sesión nueva:**
+1. Leer este bloque + `CLAUDE.md` (reglas) + `git log --oneline -6`.
+2. Servidor: `iniciar.bat` → http://localhost:5000 · Tests: `python -m pytest` (47 en verde).
+3. El usuario lidera la revisión: esperar su reporte/material de referencia antes de empezar una fase.
+
 **Decisiones acordadas (2026-07-11):**
 - Estilos visuales: quitar solo **Geométrico**; conservar Plano + Isométrico.
 - Nivel **Kids / muy fácil**: solo en laberintos.
