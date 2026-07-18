@@ -19,6 +19,10 @@ let state = {
 // Puzzles that need word input
 const WORD_PUZZLES = new Set(['crossword', 'word_search']);
 
+// Laberintos: único bloque con nivel "Kids" (muy fácil) en el selector de dificultad
+const MAZE_PUZZLES = new Set(['maze_rect', 'maze_hex', 'maze_circular', 'maze_triangle',
+                               'maze_triangle_sq', 'maze_weave', 'maze_round_weave']);
+
 // Grosor de línea estándar único para todas las plantillas (KDP B&N)
 const STROKE_STD = 1.5;
 const CLUE_PUZZLES = new Set(['crossword']);
@@ -43,10 +47,13 @@ const SIZE_OPTIONS = {
   nurikabe: [{label:'15×10',value:[15,10]}],
   crossword:[{label:'13×13',value:13},{label:'15×15',value:15},{label:'17×17',value:17},{label:'21×21',value:21}],
   word_search:[{label:'10×10',value:10},{label:'12×12',value:12},{label:'15×15',value:15},{label:'17×17',value:17},{label:'20×20',value:20}],
-  maze_rect:[{label:'10×10',value:[10,10]},{label:'15×15',value:[15,15]},{label:'20×20',value:[20,20]},{label:'25×25',value:[25,25]}],
-  maze_hex: [{label:'6×8',value:[6,8]},{label:'8×10',value:[8,10]},{label:'10×12',value:[10,12]}],
-  maze_circular:[{label:'4 anillos',value:4},{label:'5 anillos',value:5},{label:'6 anillos',value:6},{label:'7 anillos',value:7},{label:'8 anillos',value:8}],
-  maze_triangle:[{label:'Pequeño',value:8},{label:'Mediano',value:10},{label:'Grande',value:12}],
+  maze_rect:[{label:'20×20',value:[20,20]},{label:'25×25',value:[25,25]},{label:'30×30',value:[30,30]}],
+  maze_hex: [{label:'20×20',value:[20,20]},{label:'25×25',value:[25,25]},{label:'30×30',value:[30,30]}],
+  maze_circular:[{label:'15 anillos',value:15},{label:'20 anillos',value:20},{label:'25 anillos',value:25},{label:'30 anillos',value:30}],
+  maze_triangle:[{label:'20',value:20},{label:'25',value:25},{label:'30',value:30}],
+  maze_triangle_sq:[{label:'20×40',value:[20,40]},{label:'25×50',value:[25,50]},{label:'30×60',value:[30,60]}],
+  maze_weave:[{label:'15×15',value:[15,15]},{label:'18×18',value:[18,18]},{label:'20×20',value:[20,20]}],
+  maze_round_weave:[{label:'15×15',value:[15,15]},{label:'18×18',value:[18,18]},{label:'20×20',value:[20,20]}],
 };
 
 // ── Init ─────────────────────────────────────────────────────────────────────
@@ -105,8 +112,27 @@ function selectPuzzle(id, name, needsWords, needsClues) {
   // Size selector
   buildSizeSelector(id);
 
+  // Nivel "Kids" (muy fácil): solo disponible para laberintos
+  updateDifficultyOptions(id);
+
   // Reset clues tab
   document.getElementById('cluesTabBtn').style.display = 'none';
+}
+
+function updateDifficultyOptions(id) {
+  const sel = document.getElementById('difficulty');
+  const hasKids = !!sel.querySelector('option[value="kids"]');
+  if (MAZE_PUZZLES.has(id)) {
+    if (!hasKids) {
+      const opt = document.createElement('option');
+      opt.value = 'kids';
+      opt.textContent = 'Kids (muy fácil)';
+      sel.insertBefore(opt, sel.firstChild);
+    }
+  } else if (hasKids) {
+    if (sel.value === 'kids') sel.value = 'easy';
+    sel.querySelector('option[value="kids"]').remove();
+  }
 }
 
 function buildSizeSelector(id) {

@@ -50,7 +50,7 @@ def generate_hashi(rows=14, cols=10, difficulty='medium'):
     # Parámetros por dificultad (rangos amplios para que se note la diferencia):
     #  fácil  = islas MUY juntas, puentes cortos, valores altos (muchas deducciones forzadas)
     #  difícil= islas dispersas, puentes largos, valores bajos (razonamiento global)
-    density     = {'easy': 0.15, 'medium': 0.11, 'hard': 0.075}.get(difficulty, 0.11)
+    density     = {'easy': 0.18, 'medium': 0.15, 'hard': 0.11}.get(difficulty, 0.15)
     max_reach   = {'easy': 3,    'medium': 6,    'hard': 12}.get(difficulty, 6)   # largo máx. de puente
     p_double    = {'easy': 0.80, 'medium': 0.40, 'hard': 0.12}.get(difficulty, 0.40)
     extra_frac  = {'easy': 0.60, 'medium': 0.30, 'hard': 0.10}.get(difficulty, 0.30)  # aristas extra (sube los valores)
@@ -447,7 +447,7 @@ def generate_akari(rows=12, cols=None, difficulty='medium'):
         cols = rows
     # Fácil = muchos muros y casi todos numerados; Difícil = pocos números (pasillos
     # largos, razonamiento global) — rangos amplios para que la diferencia se note.
-    wall_density = {'easy': 0.22, 'medium': 0.15, 'hard': 0.10}.get(difficulty, 0.15)
+    wall_density = {'easy': 0.26, 'medium': 0.19, 'hard': 0.14}.get(difficulty, 0.19)
     num_frac = {'easy': 0.95, 'medium': 0.52, 'hard': 0.18}.get(difficulty, 0.52)
     for _ in range(200):
         res = _try_akari(rows, cols, wall_density, num_frac)
@@ -563,7 +563,7 @@ def generate_masyu(rows=14, cols=10, difficulty='medium'):
 
     # Más perlas = más pistas = MÁS FÁCIL. Por eso fácil tiene MUCHAS perlas y
     # difícil pocas (obliga a razonamiento global del bucle).
-    frac = {'easy': 0.60, 'medium': 0.34, 'hard': 0.16}.get(difficulty, 0.34)
+    frac = {'easy': 0.72, 'medium': 0.48, 'hard': 0.28}.get(difficulty, 0.48)
     random.shuffle(white_c)
     random.shuffle(black_c)
     pearls = {}

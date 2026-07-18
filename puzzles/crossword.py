@@ -11,9 +11,14 @@ def generate_word_search(words, grid_size=15, difficulty='medium'):
     words.sort(key=len, reverse=True)
     grid = [['.' for _ in range(grid_size)] for _ in range(grid_size)]
     solution = [['.' for _ in range(grid_size)] for _ in range(grid_size)]
-    directions = [(0,1),(0,-1),(1,0),(-1,0),(1,1),(1,-1),(-1,1),(-1,-1)]
+    # fácil: solo horizontal/vertical (un sentido); media: H/V en ambos sentidos;
+    # difícil: + diagonales en ambos sentidos.
     if difficulty == 'easy':
-        directions = [(0,1),(1,0),(1,1)]  # fewer directions
+        directions = [(0, 1), (1, 0)]
+    elif difficulty == 'hard':
+        directions = [(0,1),(0,-1),(1,0),(-1,0),(1,1),(1,-1),(-1,1),(-1,-1)]
+    else:  # medium
+        directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]
     placed_words = []
     word_positions = {}
 

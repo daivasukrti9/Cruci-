@@ -22,8 +22,8 @@
       "label": "Aritmética y Lógica",
       "icon": "calculator",
       "puzzles": [
-        {"id":"kenken","name":"KenKen / Calcudoku","sizes":[3,4,5,6,7,8],"needs_words":false},
-        {"id":"futoshiki","name":"Futoshiki (Desigual)","sizes":[4,5,6,7],"needs_words":false},
+        {"id":"kenken","name":"KenKen / Calcudoku","sizes":[3,4,5,6,7,8,9,12],"needs_words":false},
+        {"id":"futoshiki","name":"Futoshiki (Desigual)","sizes":[4,5,6,7,8,9,10,12],"needs_words":false},
         {"id":"hitori","name":"Hitori (Individuales)","sizes":[[10,10],[20,14]],"needs_words":false}
       ]
     },
@@ -52,10 +52,13 @@
       "label": "Laberintos",
       "icon": "map",
       "puzzles": [
-        {"id":"maze_rect","name":"Laberinto Rectangular","sizes":[[10,10],[15,15],[20,20],[25,25]],"needs_words":false},
-        {"id":"maze_hex","name":"Laberinto Hexagonal","sizes":[[6,8],[8,10],[10,12]],"needs_words":false},
-        {"id":"maze_circular","name":"Laberinto Circular","sizes":[4,5,6,7,8],"needs_words":false},
-        {"id":"maze_triangle","name":"Laberinto Triangular","sizes":[8,10,12],"needs_words":false}
+        {"id":"maze_rect","name":"Laberinto Rectangular","sizes":[[20,20],[25,25],[30,30]],"needs_words":false},
+        {"id":"maze_hex","name":"Laberinto Hexagonal","sizes":[[20,20],[25,25],[30,30]],"needs_words":false},
+        {"id":"maze_circular","name":"Laberinto Circular","sizes":[15,20,25,30],"needs_words":false},
+        {"id":"maze_triangle","name":"Laberinto Triangular","sizes":[20,25,30],"needs_words":false},
+        {"id":"maze_triangle_sq","name":"Laberinto Triangular (cuadrado)","sizes":[[20,40],[25,50],[30,60]],"needs_words":false},
+        {"id":"maze_weave","name":"Laberinto de Puentes","sizes":[[15,15],[18,18],[20,20]],"needs_words":false},
+        {"id":"maze_round_weave","name":"Laberinto de Puente Circular","sizes":[[15,15],[18,18],[20,20]],"needs_words":false}
       ]
     }
   ],

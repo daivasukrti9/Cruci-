@@ -133,7 +133,7 @@ def _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, cl
     elif puzzle_id == 'kenken':
         from puzzles.kenken import generate_kenken
         size = int(size_param) if isinstance(size_param, (int, str)) else 4
-        size = max(3, min(8, size))
+        size = max(3, min(12, size))
         puzzle, solution, cages = generate_kenken(size, difficulty)
         puzzle_svg   = R.render_kenken(puzzle, solution, cages, size, style, stroke_w, False)
         solution_svg = R.render_kenken(puzzle, solution, cages, size, style, stroke_w, True)
@@ -145,7 +145,7 @@ def _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, cl
     elif puzzle_id == 'futoshiki':
         from puzzles.kenken import generate_futoshiki
         size = int(size_param) if isinstance(size_param, (int, str)) else 5
-        size = max(4, min(7, size))
+        size = max(4, min(12, size))
         puzzle, solution, inequalities = generate_futoshiki(size, difficulty)
         puzzle_svg   = R.render_futoshiki(puzzle, solution, inequalities, style, stroke_w, False)
         solution_svg = R.render_futoshiki(puzzle, solution, inequalities, style, stroke_w, True)
@@ -254,7 +254,7 @@ def _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, cl
         from puzzles.maze import generate_rectangular_maze
         sz = size_param if isinstance(size_param, list) else [15, 15]
         rows, cols = int(sz[0]), int(sz[1])
-        grid, sol_path = generate_rectangular_maze(rows, cols)
+        grid, sol_path = generate_rectangular_maze(rows, cols, difficulty)
         cell_px = max(8, min(20, 300 // max(rows, cols)))
         puzzle_svg   = R.render_maze_rect(grid, sol_path, style, stroke_w, False, cell_px)
         solution_svg = R.render_maze_rect(grid, sol_path, style, stroke_w, True, cell_px)
@@ -266,7 +266,7 @@ def _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, cl
         from puzzles.maze import generate_hexagonal_maze
         sz = size_param if isinstance(size_param, list) else [8, 10]
         rows, cols = int(sz[0]), int(sz[1])
-        cells, conns, walls, sol_path = generate_hexagonal_maze(rows, cols)
+        cells, conns, walls, sol_path = generate_hexagonal_maze(rows, cols, difficulty)
         puzzle_svg   = R.render_maze_hex(cells, conns, walls, sol_path, rows, cols, style, stroke_w, False)
         solution_svg = R.render_maze_hex(cells, conns, walls, sol_path, rows, cols, style, stroke_w, True)
         return {'puzzle_svg': puzzle_svg, 'solution_svg': solution_svg,
@@ -275,9 +275,9 @@ def _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, cl
 
     elif puzzle_id == 'maze_circular':
         from puzzles.maze import generate_circular_maze
-        rings = int(size_param) if isinstance(size_param, (int, str)) else 5
-        rings = max(3, min(8, rings))
-        cells, sc, conns, walls, sol_path = generate_circular_maze(rings)
+        rings = int(size_param) if isinstance(size_param, (int, str)) else 15
+        rings = max(3, min(30, rings))
+        cells, sc, conns, walls, sol_path = generate_circular_maze(rings, difficulty=difficulty)
         puzzle_svg   = R.render_maze_circular(cells, sc, conns, walls, sol_path, style, stroke_w, False)
         solution_svg = R.render_maze_circular(cells, sc, conns, walls, sol_path, style, stroke_w, True)
         return {'puzzle_svg': puzzle_svg, 'solution_svg': solution_svg,
@@ -287,12 +287,40 @@ def _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, cl
     elif puzzle_id == 'maze_triangle':
         from puzzles.maze import generate_triangular_maze
         size = int(size_param) if isinstance(size_param, (int, str)) else 10
-        grid, sol_path = generate_triangular_maze(size)
-        puzzle_svg   = R.render_maze_rect(grid, sol_path, style, stroke_w, False, 14)
-        solution_svg = R.render_maze_rect(grid, sol_path, style, stroke_w, True, 14)
+        cells, conns, walls, sol_path, rows, cols = generate_triangular_maze(size, difficulty)
+        puzzle_svg   = R.render_maze_tri(cells, conns, walls, sol_path, rows, cols, style, stroke_w, False)
+        solution_svg = R.render_maze_tri(cells, conns, walls, sol_path, rows, cols, style, stroke_w, True)
         return {'puzzle_svg': puzzle_svg, 'solution_svg': solution_svg,
                 'title': f'Laberinto Triangular',
                 'instructions': _instr('maze_triangle')}
+
+    elif puzzle_id == 'maze_triangle_sq':
+        from puzzles.maze import generate_triangular_sq_maze
+        sz = size_param if isinstance(size_param, list) else [25, 50]
+        rows, cols = int(sz[0]), int(sz[1])
+        cells, conns, walls, sol_path, rows, cols = generate_triangular_sq_maze(rows, cols, difficulty)
+        puzzle_svg   = R.render_maze_tri_sq(cells, conns, walls, sol_path, rows, cols, style, stroke_w, False)
+        solution_svg = R.render_maze_tri_sq(cells, conns, walls, sol_path, rows, cols, style, stroke_w, True)
+        return {'puzzle_svg': puzzle_svg, 'solution_svg': solution_svg,
+                'title': f'Laberinto Triangular {rows}×{cols}',
+                'instructions': _instr('maze_triangle_sq')}
+
+    elif puzzle_id in ('maze_weave', 'maze_round_weave'):
+        from puzzles.maze import generate_weave_maze
+        sz = size_param if isinstance(size_param, list) else [15, 15]
+        rows, cols = int(sz[0]), int(sz[1])
+        cells, conns, bridges, sol_path, rows, cols = generate_weave_maze(rows, cols, difficulty)
+        # Bridge = esquinas rectas; Round Bridge = esquinas curvas (mismo weave).
+        corner = 'round' if puzzle_id == 'maze_round_weave' else 'sharp'
+        title = ('Laberinto de Puente Circular' if corner == 'round'
+                 else 'Laberinto de Puentes')
+        puzzle_svg   = R.render_maze_weave(cells, conns, bridges, sol_path, rows, cols,
+                                           style, stroke_w, False, corner=corner)
+        solution_svg = R.render_maze_weave(cells, conns, bridges, sol_path, rows, cols,
+                                           style, stroke_w, True, corner=corner)
+        return {'puzzle_svg': puzzle_svg, 'solution_svg': solution_svg,
+                'title': f'{title} {rows}×{cols}',
+                'instructions': _instr(puzzle_id)}
 
     else:
         return {'puzzle_svg': '', 'solution_svg': '',
@@ -448,6 +476,9 @@ def _instr(pid, size=9):
         'maze_hex': 'Navega por el laberinto hexagonal. Cada celda puede tener hasta 6 salidas posibles.',
         'maze_circular': 'Encuentra el camino desde el centro hasta el anillo exterior del laberinto circular.',
         'maze_triangle': 'Resuelve el laberinto de celdas triangulares encontrando el camino de entrada a salida.',
+        'maze_triangle_sq': 'Laberinto de celdas triangulares en cuadrícula rectangular. Encuentra el camino desde la entrada (arriba-izquierda) hasta la salida (abajo-derecha).',
+        'maze_weave': 'Encuentra el camino de entrada a salida. Donde el camino se convierta en un puente de líneas paralelas, cruza recto: pasas por encima o por debajo del otro pasillo sin poder girar ahí.',
+        'maze_round_weave': 'Encuentra el camino de entrada a salida. Los pasillos son curvos; donde un camino cruza sobre otro por un puente, pasa recto por encima o por debajo sin poder girar ahí.',
         'futoshiki': f'Rellena la cuadrícula {size}×{size} sin repetir. Respeta los signos de mayor/menor entre celdas adyacentes.',
     }
     return texts.get(pid, 'Resuelve el puzzle siguiendo las reglas indicadas.')

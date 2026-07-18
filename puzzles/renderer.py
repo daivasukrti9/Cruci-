@@ -64,6 +64,59 @@ def _cage_line(x1, y1, x2, y2, color='#888888', sw=1.0):
             f'stroke="{color}" stroke-width="{sw}"/>\n')
 
 
+# ─── LABERINTOS: estilo homogéneo de paredes ────────────────────────────────
+# Paredes finas negras de grosor UNIFORME en todos los laberintos (para
+# armonizar la familia), solución en rojo del mismo grosor, y remache circular
+# para marcar los cruces de puente.
+MAZE_WALL_COLOR = '#000000'
+MAZE_SOLUTION_COLOR = '#e63232'
+MAZE_WALL_STROKE = 2.6        # grosor único de pared para TODOS los laberintos
+MAZE_SOLUTION_STROKE = 2.6    # grosor de la línea de solución (roja)
+
+
+def _pipe_wall(x1, y1, x2, y2, sw=MAZE_WALL_STROKE, color=MAZE_WALL_COLOR):
+    """Segmento de pared: trazo fino con extremos/uniones redondeadas. Los
+    extremos redondeados de segmentos contiguos se solapan en las esquinas,
+    dando una malla continua sin necesidad de unir los trazos."""
+    return (f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" '
+            f'stroke="{color}" stroke-width="{sw:.1f}" stroke-linecap="round"/>\n')
+
+
+def _pipe_solution(points, sw=MAZE_SOLUTION_STROKE):
+    """Línea de solución roja y fina que recorre los centros del camino."""
+    pts = ' '.join(f'{x:.1f},{y:.1f}' for x, y in points)
+    return (f'<polyline points="{pts}" fill="none" stroke="{MAZE_SOLUTION_COLOR}" '
+            f'stroke-width="{sw:.1f}" stroke-linecap="round" stroke-linejoin="round"/>\n')
+
+
+def _tri_edge_mid(cell_a, cell_b, cell_geom):
+    """Punto medio de la arista COMPARTIDA entre dos triángulos contiguos (la
+    "puerta" por la que pasa el corredor). Devuelve None si no comparten arista."""
+    va, vb = cell_geom(*cell_a), cell_geom(*cell_b)
+    shared = [p for p in va
+              if any(abs(p[0]-q[0]) < 0.5 and abs(p[1]-q[1]) < 0.5 for q in vb)]
+    if len(shared) >= 2:
+        return ((shared[0][0]+shared[1][0])/2, (shared[0][1]+shared[1][1])/2)
+    return None
+
+
+def _tri_solution_points(path, cell_geom):
+    """Puntos interiores de la línea de solución de un laberinto triangular:
+    los puntos medios de las aristas compartidas a lo largo del camino. Al pasar
+    por las puertas reales (y no por los centroides), la línea sigue el corredor
+    de forma uniforme, sin picos. Los extremos (entrada/salida) los añade cada
+    render según dónde abra su borde."""
+    return [m for i in range(len(path)-1)
+            if (m := _tri_edge_mid(path[i], path[i+1], cell_geom)) is not None]
+
+
+def _bridge_rivet(cx, cy, r):
+    """Marcador circular ("remache") sobre una celda-puente: indica el cruce
+    elevado donde un pasillo pasa por encima/debajo de otro sin tocarlo."""
+    return (f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" fill="#ffffff" '
+            f'stroke="{MAZE_WALL_COLOR}" stroke-width="{max(1.5, r*0.35):.1f}"/>\n')
+
+
 def _ineq_symbol(op, vertical):
     """Símbolo de desigualdad de Futoshiki. `op` es la relación de la primera celda
     (izquierda si horizontal, ARRIBA si vertical) respecto a la segunda. El vértice
@@ -232,13 +285,8 @@ def render_sudoku(puzzle, solution, size=9, style='flat', stroke_width=1.5,
 def render_crossword(puzzle_grid, solution_grid, across_entries, down_entries,
                      cell_numbers, style='flat', stroke_width=1.5,
                      show_solution=False, title=''):
-    if show_solution:
-        # Mostrar en tabla de respuestas
-        answers = {}
-        answers['RESPUESTAS HORIZONTALES'] = '\n'.join([f"{e['number']}. {e['word']}" for e in across_entries])
-        answers['RESPUESTAS VERTICALES'] = '\n'.join([f"{e['number']}. {e['word']}" for e in down_entries])
-        return render_solution_table(answers, 'Crucigrama SOLUCIONES')
-
+    """Crucigrama sobre la MISMA plantilla. Puzzle: casillas blancas vacías.
+    Solución: la plantilla se rellena con las palabras, en negrita."""
     st = {**STYLES.get(style, STYLES['flat']), 'stroke_width': stroke_width}
     size = len(puzzle_grid)
     cell = 36
@@ -247,21 +295,22 @@ def render_crossword(puzzle_grid, solution_grid, across_entries, down_entries,
     H = margin * 2 + cell * size
 
     svg = _svg_header(W, H)
-    grid = puzzle_grid
 
     for r in range(size):
         for c in range(size):
             x = margin + c * cell
             y = margin + r * cell
-            val = grid[r][c] if grid[r][c] is not None else None
-            if val is None:
+            is_wall = puzzle_grid[r][c] is None
+            if is_wall:
                 # Black cell
                 svg += _rect(x, y, cell, cell, st['fill_black'], st['stroke'], st['stroke_width'])
             else:
                 svg += _rect(x, y, cell, cell, st['fill_empty'], st['stroke'], st['stroke_width'])
-                if show_solution and val:
-                    svg += _text(x + cell/2, y + cell/2 + 2, str(val),
-                                 st['font_bold'], cell * 0.5, bold=True)
+                if show_solution:
+                    val = solution_grid[r][c]
+                    if val:
+                        svg += _text(x + cell/2, y + cell/2 + 2, str(val),
+                                     st['font_bold'], cell * 0.5, bold=True)
                 # Cell number
                 num = cell_numbers.get((r, c))
                 if num:
@@ -276,14 +325,9 @@ def render_crossword(puzzle_grid, solution_grid, across_entries, down_entries,
 
 def render_word_search(grid, solution_grid, placed_words, word_positions,
                        style='flat', stroke_width=1.0, show_solution=False):
-    if show_solution:
-        words_with_pos = {}
-        for word, info in word_positions.items():
-            dr, dc = info['direction']
-            r1, c1 = info['cells'][0]
-            words_with_pos[word] = f"↓({r1},{c1})" if dr > 0 else f"→({r1},{c1})" if dc > 0 else f"↙({r1},{c1})"
-        return render_solution_table(words_with_pos, 'Sopa de Letras SOLUCIÓN', cols=2)
-
+    """Sopa de letras sobre la MISMA plantilla. Puzzle: todas las letras normales.
+    Solución: las celdas de las palabras encontradas van en NEGRO con la letra en
+    blanco; el resto de celdas (relleno) se mantiene igual."""
     st = {**STYLES.get(style, STYLES['flat']), 'stroke_width': stroke_width}
     rows = len(grid)
     cols = len(grid[0])
@@ -295,7 +339,7 @@ def render_word_search(grid, solution_grid, placed_words, word_positions,
     svg = _svg_header(W, H)
     disp = grid
 
-    # Highlight word cells in solution
+    # Celdas de las palabras encontradas (solo se marcan en la solución)
     sol_cells = set()
     if show_solution:
         for word, info in word_positions.items():
@@ -306,12 +350,14 @@ def render_word_search(grid, solution_grid, placed_words, word_positions,
         for c in range(cols):
             x = margin + c * cell
             y = margin + r * cell
-            fill = '#d8d8d8' if (r, c) in sol_cells else st['fill_empty']
+            is_word_cell = (r, c) in sol_cells
+            fill = st['fill_black'] if is_word_cell else st['fill_empty']
             svg += _rect(x, y, cell, cell, fill, st['stroke'], st['stroke_width'])
             ch = disp[r][c]
             if ch:
+                color = '#ffffff' if is_word_cell else '#000000'
                 svg += _text(x + cell/2, y + cell/2, ch.upper(),
-                             st['font'], cell * 0.5)
+                             st['font'], cell * 0.5, bold=is_word_cell, color=color)
 
     svg += _svg_footer()
     return svg
@@ -380,35 +426,41 @@ def render_kenken(puzzle, solution, cages, size, style='flat', stroke_width=1.5,
 
 def render_maze_rect(grid, solution_path, style='flat', stroke_width=2.0,
                      show_solution=False, cell_size=20):
-    if show_solution:
-        # Mostrar solución como lista de pasos
-        steps = {}
-        for i, (r, c) in enumerate(solution_path[:20]):  # Primeros 20 pasos
-            steps[f'Paso {i+1}'] = f'({r}, {c})'
-        return render_solution_table(steps, 'Laberinto SOLUCIÓN', cols=2)
-
-    st = {**STYLES.get(style, STYLES['flat']), 'stroke_width': stroke_width}
-    rows = len(grid)
-    cols = len(grid[0])
+    """Laberinto rectangular: paredes finas negras de grosor uniforme con
+    uniones redondeadas. La entrada (borde izquierdo) y la salida (borde
+    derecho) quedan abiertas. La solución es una línea roja fina."""
+    rows = (len(grid) - 1) // 2
+    cols = (len(grid[0]) - 1) // 2
     margin = 20
     W = margin * 2 + cols * cell_size
     H = margin * 2 + rows * cell_size
     svg = _svg_header(W, H)
 
-    sol_set = set(solution_path)
-
+    # Paredes verticales: grid[2r+1][2c], entre la celda (r,c-1) y (r,c).
+    # (grid[...]==0 en la entrada/salida ⇒ no se dibuja pared ⇒ borde abierto.)
     for r in range(rows):
-        for c in range(cols):
-            x = margin + c * cell_size
-            y = margin + r * cell_size
-            if grid[r][c] == 1:
-                svg += _rect(x, y, cell_size, cell_size, st['fill_black'], st['fill_black'], 0)
-            elif show_solution and (r, c) in sol_set:
-                svg += _rect(x, y, cell_size, cell_size, '#aaaaaa', 'none', 0)
+        for c in range(cols + 1):
+            if grid[2*r+1][2*c] == 1:
+                x = margin + c * cell_size
+                y1 = margin + r * cell_size
+                y2 = y1 + cell_size
+                svg += _pipe_wall(x, y1, x, y2)
 
-    # Outer border
-    svg += _rect(margin, margin, cols*cell_size, rows*cell_size,
-                 'none', st['stroke'], stroke_width * 2)
+    # Paredes horizontales: grid[2r][2c+1], entre la celda (r-1,c) y (r,c).
+    for r in range(rows + 1):
+        for c in range(cols):
+            if grid[2*r][2*c+1] == 1:
+                y = margin + r * cell_size
+                x1 = margin + c * cell_size
+                x2 = x1 + cell_size
+                svg += _pipe_wall(x1, y, x2, y)
+
+    if show_solution and solution_path:
+        # solution_path está en coordenadas de la cuadrícula DOBLADA (celdas y
+        # puntos medios de pared alternados); cada paso equivale a media celda.
+        half = cell_size / 2
+        pts = [(margin + gc*half, margin + gr*half) for gr, gc in solution_path]
+        svg += _pipe_solution(pts)
 
     svg += _svg_footer()
     return svg
@@ -416,45 +468,325 @@ def render_maze_rect(grid, solution_path, style='flat', stroke_width=2.0,
 
 # ─── MAZE (Hexagonal) ────────────────────────────────────────────────────────
 
+# Arista i del hexágono pointy-top (entre vértice i e i+1, con vértices en
+# ángulos 60·i − 30°) → dirección de brújula del vecino al otro lado.
+_HEX_EDGE_DIR = {0: 'E', 1: 'SE', 2: 'SW', 3: 'W', 4: 'NW', 5: 'NE'}
+
+
+def _hex_edge_neighbor(row, col, direction):
+    """Vecino offset "odd-r" en la dirección de brújula dada."""
+    even = (row % 2 == 0)
+    return {
+        'E':  (row, col+1),
+        'W':  (row, col-1),
+        'NW': (row-1, col-1) if even else (row-1, col),
+        'NE': (row-1, col)   if even else (row-1, col+1),
+        'SW': (row+1, col-1) if even else (row+1, col),
+        'SE': (row+1, col)   if even else (row+1, col+1),
+    }[direction]
+
+
 def render_maze_hex(cells, connections, walls, solution_path, rows, cols,
                     style='flat', stroke_width=2.0, show_solution=False):
-    if show_solution:
-        steps = {}
-        for i, (r, c) in enumerate(solution_path[:15]):
-            steps[f'Paso {i+1}'] = f'({r}, {c})'
-        return render_solution_table(steps, 'Laberinto Hexagonal SOLUCIÓN', cols=2)
+    """Laberinto hexagonal de contorno RECTANGULAR (coordenadas offset odd-r).
+    Solo se dibujan las paredes reales, con grosor uniforme. La entrada (borde
+    izquierdo de la celda 0,0) y la salida (borde derecho de la última celda)
+    quedan abiertas. La solución es una línea roja fina por los centros."""
+    hex_size = 16  # radio
+    margin = 24
+    conn_set = set(connections)
+    cell_set = set(cells)
+    w = math.sqrt(3) * hex_size          # ancho de celda
 
-    st = {**STYLES.get(style, STYLES['flat']), 'stroke_width': stroke_width}
-    hex_size = 20  # radius
-    margin = 30
-    sol_set = set(solution_path)
-
-    def hex_center(r, c):
-        offset = hex_size if r % 2 == 1 else 0
-        cx = margin + c * hex_size * 1.75 + offset + hex_size
-        cy = margin + r * hex_size * 1.5 + hex_size
+    def hex_center(row, col):
+        cx = margin + col * w + (row % 2) * (w / 2) + w / 2
+        cy = margin + row * 1.5 * hex_size + hex_size
         return cx, cy
 
     def hex_points(cx, cy, size):
-        pts = []
-        for i in range(6):
-            angle = math.pi / 180 * (60 * i - 30)
-            pts.append((cx + size * math.cos(angle), cy + size * math.sin(angle)))
-        return pts
+        return [(cx + size * math.cos(math.pi/180 * (60*i - 30)),
+                 cy + size * math.sin(math.pi/180 * (60*i - 30))) for i in range(6)]
 
-    max_r, max_c = max(r for r,c in cells), max(c for r,c in cells)
-    cx_max, cy_max = hex_center(max_r, max_c)
-    W = int(cx_max + hex_size * 2 + margin)
-    H = int(cy_max + hex_size * 2 + margin)
+    centers = {cell: hex_center(*cell) for cell in cells}
+    xs = [c[0] for c in centers.values()]
+    ys = [c[1] for c in centers.values()]
+    W = int(max(xs) + w + margin)
+    H = int(max(ys) + hex_size + margin)
     svg = _svg_header(W, H)
 
-    for (r, c) in cells:
-        cx, cy = hex_center(r, c)
-        pts = hex_points(cx, cy, hex_size - 1)
-        pt_str = ' '.join(f'{x:.1f},{y:.1f}' for x, y in pts)
-        fill = '#cccccc' if (show_solution and (r,c) in sol_set) else st['fill_empty']
-        svg += (f'<polygon points="{pt_str}" fill="{fill}" '
-                f'stroke="{st["stroke"]}" stroke-width="{stroke_width}"/>\n')
+    # Aperturas de entrada/salida (arista de borde que se deja sin dibujar).
+    entrance = ((0, 0), 'W')
+    exit_ = ((rows-1, cols-1), 'E')
+
+    for cell in cells:
+        cx, cy = centers[cell]
+        pts = hex_points(cx, cy, hex_size)
+        for i in range(6):
+            direction = _HEX_EDGE_DIR[i]
+            neighbor = _hex_edge_neighbor(cell[0], cell[1], direction)
+            is_open = neighbor in cell_set and frozenset([cell, neighbor]) in conn_set
+            if is_open:
+                continue
+            if (cell, direction) == entrance or (cell, direction) == exit_:
+                continue  # apertura de entrada/salida
+            x1, y1 = pts[i]
+            x2, y2 = pts[(i + 1) % 6]
+            svg += _pipe_wall(x1, y1, x2, y2)
+
+    if show_solution and solution_path:
+        pts = [centers[cell] for cell in solution_path]
+        svg += _pipe_solution(pts)
+
+    svg += _svg_footer()
+    return svg
+
+
+# ─── MAZE (Triangular) ───────────────────────────────────────────────────────
+
+def render_maze_tri(cells, connections, walls, solution_path, size, _unused=None,
+                    style='flat', stroke_width=2.0, show_solution=False):
+    """Laberinto TRIANGULAR con forma de triángulo equilátero (fila r con 2·r+1
+    celdas ▲/▽). Solo se dibujan las paredes reales, con grosor uniforme. La
+    entrada y la salida se abren en las dos esquinas inferiores de la base. La
+    solución es una línea roja fina que sigue el corredor por las puertas
+    (puntos medios de las aristas compartidas)."""
+    b = 22.0                 # base de cada triángulo pequeño (más estrecho: caminos
+    unit = b / 2             # menos anchos, en línea con los otros laberintos)
+    h = b * math.sqrt(3) / 2
+    margin = 20
+    W = margin * 2 + int(size * b)
+    H = margin * 2 + int(size * h)
+    svg = _svg_header(W, H)
+
+    conn_set = set(connections)
+
+    # Celdas de entrada/salida (extremos de la solución): se abre su base.
+    open_base = set()
+    if solution_path:
+        open_base = {solution_path[0], solution_path[-1]}
+
+    def cell_geom(r, c):
+        # x0 = borde izquierdo de la celda; la fila r se centra en el triángulo.
+        x0 = margin + (size - 1 - r) * unit + c * unit
+        y_top = margin + r * h
+        y_bot = y_top + h
+        if c % 2 == 0:   # ▲ up: base abajo (A,B), ápice arriba (C)
+            return (x0, y_bot), (x0 + b, y_bot), (x0 + unit, y_top)
+        else:            # ▽ down: base arriba (A,B), ápice abajo (C)
+            return (x0, y_top), (x0 + b, y_top), (x0 + unit, y_bot)
+
+
+    for r, c in cells:
+        A, B, C = cell_geom(r, c)
+        up = c % 2 == 0
+
+        # Arista izquierda (A-C): borde en c==0, o pared interior con (r,c-1).
+        if c == 0 or frozenset([(r, c), (r, c-1)]) not in conn_set:
+            svg += _pipe_wall(A[0], A[1], C[0], C[1])
+        # Arista derecha (B-C): solo se dibuja como borde derecho (c==2r); las
+        # interiores las cubre la arista izquierda de la celda siguiente.
+        if c == 2*r:
+            svg += _pipe_wall(B[0], B[1], C[0], C[1])
+        # Base (A-B): solo desde celdas ▲ (la comparten con la ▽ de abajo). Las
+        # ▽ tienen su base arriba, cubierta por la ▲ superior.
+        if up:
+            if r == size - 1:
+                if (r, c) not in open_base:      # borde inferior (abre entrada/salida)
+                    svg += _pipe_wall(A[0], A[1], B[0], B[1])
+            else:
+                below = (r+1, c+1)
+                if frozenset([(r, c), below]) not in conn_set:
+                    svg += _pipe_wall(A[0], A[1], B[0], B[1])
+
+    if show_solution and solution_path:
+        pts = _tri_solution_points(solution_path, cell_geom)
+        # Extremos: la entrada/salida abren la BASE (A-B) de las esquinas inferiores;
+        # se ancla la línea en el medio de esa base y se prolonga hacia abajo.
+        A0, B0, _ = cell_geom(*solution_path[0])
+        m0 = ((A0[0]+B0[0])/2, (A0[1]+B0[1])/2)
+        An, Bn, _ = cell_geom(*solution_path[-1])
+        mn = ((An[0]+Bn[0])/2, (An[1]+Bn[1])/2)
+        pts = [(m0[0], m0[1] + h*0.5), m0] + pts + [mn, (mn[0], mn[1] + h*0.5)]
+        svg += _pipe_solution(pts)
+
+    svg += _svg_footer()
+    return svg
+
+
+# ─── MAZE (Triangular de contorno cuadrado) ──────────────────────────────────
+
+def render_maze_tri_sq(cells, connections, walls, solution_path, rows, cols,
+                       style='flat', stroke_width=2.0, show_solution=False):
+    """Laberinto TRIANGULAR de contorno RECTANGULAR/cuadrado (rejilla rows×cols
+    de triángulos ▲/▽). Solo se dibujan las paredes reales, con grosor uniforme;
+    entrada arriba-izquierda y salida abajo-derecha abiertas. Solución en rojo."""
+    b = 20.0                 # base de cada triángulo
+    unit = b / 2
+    h = b * math.sqrt(3) / 2
+    margin = 18
+    W = margin * 2 + int((cols + 1) * unit)
+    H = margin * 2 + int(rows * h)
+    svg = _svg_header(W, H)
+
+    conn_set = set(connections)
+    open_edges = set()
+    if solution_path:
+        open_edges = {solution_path[0], solution_path[-1]}
+
+    def cell_geom(r, c):
+        x0 = margin + c * unit
+        y_top = margin + r * h
+        y_bot = y_top + h
+        if (r + c) % 2 == 0:   # ▲ up: base abajo
+            return (x0, y_bot), (x0 + b, y_bot), (x0 + unit, y_top)
+        else:                  # ▽ down: base arriba
+            return (x0, y_top), (x0 + b, y_top), (x0 + unit, y_bot)
+
+
+    for r, c in cells:
+        A, B, C = cell_geom(r, c)
+        up = (r + c) % 2 == 0
+
+        # Arista izquierda (A-C): borde en c==0 (entrada), o pared con (r,c-1).
+        if c == 0 or frozenset([(r, c), (r, c-1)]) not in conn_set:
+            if not (c == 0 and (r, c) in open_edges):
+                svg += _pipe_wall(A[0], A[1], C[0], C[1])
+        # Arista derecha (B-C): solo borde derecho (c==cols-1, salida).
+        if c == cols - 1:
+            if (r, c) not in open_edges:
+                svg += _pipe_wall(B[0], B[1], C[0], C[1])
+        # Base (A-B): las ▲ la comparten con la ▽ de abajo; las ▽ solo dibujan
+        # su base (arriba) cuando son borde superior (r==0).
+        if up:
+            if r == rows - 1:
+                svg += _pipe_wall(A[0], A[1], B[0], B[1])   # borde inferior
+            elif frozenset([(r, c), (r+1, c)]) not in conn_set:
+                svg += _pipe_wall(A[0], A[1], B[0], B[1])
+        elif r == 0:
+            svg += _pipe_wall(A[0], A[1], B[0], B[1])       # borde superior
+
+    if show_solution and solution_path:
+        pts = _tri_solution_points(solution_path, cell_geom)
+        # Extremos: entrada por el borde IZQUIERDO (arista A-C) de la primera celda,
+        # salida por el borde DERECHO (arista B-C) de la última; se prolonga en horizontal.
+        A0, _, C0 = cell_geom(*solution_path[0])
+        m0 = ((A0[0]+C0[0])/2, (A0[1]+C0[1])/2)
+        _, Bn, Cn = cell_geom(*solution_path[-1])
+        mn = ((Bn[0]+Cn[0])/2, (Bn[1]+Cn[1])/2)
+        pts = [(m0[0] - unit, m0[1]), m0] + pts + [mn, (mn[0] + unit, mn[1])]
+        svg += _pipe_solution(pts)
+
+    svg += _svg_footer()
+    return svg
+
+
+# ─── MAZE (Puentes / Weave) — renderizado por CORREDORES en dos capas ────────
+# El estilo real: el CAMINO es un tubo blanco con contorno negro. Se dibuja por
+# capas (algoritmo del pintor): primero el plano inferior (pasillos normales +
+# la dirección "subterránea" de cada puente), luego el plano superior (la
+# dirección "elevada" de los puentes), que corta visualmente al de abajo.
+# `corner='sharp'` da esquinas rectas (Bridge); `corner='round'` da curvas de
+# 90° (Round Bridge). Las paredes son el negro que queda entre pasillos.
+
+def _corridor_paths(cx, cy, dirs, r, corner):
+    """Segmentos SVG (d-strings) del pasillo de una celda hacia sus direcciones
+    conectadas. En 'round', un pasillo en L se dibuja como arco de 90°."""
+    ends = {'N': (cx, cy - r), 'S': (cx, cy + r),
+            'W': (cx - r, cy), 'E': (cx + r, cy)}
+    dset = set(dirs)
+    if corner == 'round' and len(dset) == 2:
+        if dset == {'N', 'S'}:
+            return [f'M {cx:.1f} {cy-r:.1f} L {cx:.1f} {cy+r:.1f}']
+        if dset == {'E', 'W'}:
+            return [f'M {cx-r:.1f} {cy:.1f} L {cx+r:.1f} {cy:.1f}']
+        arc = {
+            frozenset({'N', 'E'}): f'M {cx:.1f} {cy-r:.1f} A {r:.1f} {r:.1f} 0 0 1 {cx+r:.1f} {cy:.1f}',
+            frozenset({'E', 'S'}): f'M {cx+r:.1f} {cy:.1f} A {r:.1f} {r:.1f} 0 0 1 {cx:.1f} {cy+r:.1f}',
+            frozenset({'S', 'W'}): f'M {cx:.1f} {cy+r:.1f} A {r:.1f} {r:.1f} 0 0 1 {cx-r:.1f} {cy:.1f}',
+            frozenset({'W', 'N'}): f'M {cx-r:.1f} {cy:.1f} A {r:.1f} {r:.1f} 0 0 1 {cx:.1f} {cy-r:.1f}',
+        }.get(frozenset(dset))
+        if arc:
+            return [arc]
+    # sharp, o celdas rectas/cruce/fin: radios desde el centro a cada salida.
+    return [f'M {cx:.1f} {cy:.1f} L {ex:.1f} {ey:.1f}' for d in dset
+            for (ex, ey) in [ends[d]]]
+
+
+def render_maze_weave(cells, connections, bridges, solution_path, rows, cols,
+                      style='flat', stroke_width=2.0, show_solution=False,
+                      cell_size=26, corner='sharp'):
+    """Laberinto de puentes (weave) ortogonal renderizado por corredores en dos
+    capas. `corner='sharp'` = Bridge (esquinas rectas); `corner='round'` =
+    Round Bridge (curvas de 90°). La solución es una línea roja fina."""
+    margin = 18
+    S = cell_size
+    r = S / 2
+    # Doble trazo compuesto (algoritmo del pintor): el NEGRO ocupa la celda
+    # completa (grosor S) y el BLANCO va encima (grosor S·0.65). Así el negro de
+    # celdas contiguas se funde en una masa y las PAREDES son las franjas negras
+    # (≈ S·0.175 por lado) que quedan entre los pasillos blancos.
+    outer = S            # contorno negro (100 % de la celda)
+    inner = S * 0.65     # relleno blanco del pasillo transitable
+    W = margin * 2 + cols * S
+    H = margin * 2 + rows * S
+    svg = _svg_header(W, H)
+
+    conn_set = set(connections)
+
+    def center(rc):
+        rr, cc = rc
+        return margin + cc*S + r, margin + rr*S + r
+
+    # Direcciones de conexión de distancia 1 (excluye los saltos de puente,
+    # que son conexiones de distancia 2 y se dibujan aparte en la capa superior).
+    DIRS = {'N': (-1, 0), 'S': (1, 0), 'W': (0, -1), 'E': (0, 1)}
+
+    def cell_dirs(cell):
+        rr, cc = cell
+        ds = [d for d, (dr, dc) in DIRS.items()
+              if frozenset([cell, (rr+dr, cc+dc)]) in conn_set]
+        if cell == (0, 0):
+            ds.append('W')                 # entrada (izquierda)
+        if cell == (rows-1, cols-1):
+            ds.append('E')                 # salida (derecha)
+        return ds
+
+    layer0 = []   # pasillos normales + parte "bajo" de los puentes
+    for cell in cells:
+        cx, cy = center(cell)
+        layer0 += _corridor_paths(cx, cy, cell_dirs(cell), r, corner)
+
+    layer1 = []   # parte "elevada" de los puentes (recta, sobre la celda saltada)
+    for (br, bc), axis in bridges.items():
+        if axis == 'h':                    # bajo pasa horizontal ⇒ elevado vertical
+            p1, p2 = (br-1, bc), (br+1, bc)
+        else:                              # bajo pasa vertical ⇒ elevado horizontal
+            p1, p2 = (br, bc-1), (br, bc+1)
+        x1, y1 = center(p1)
+        x2, y2 = center(p2)
+        layer1.append(f'M {x1:.1f} {y1:.1f} L {x2:.1f} {y2:.1f}')
+
+    cap = 'round' if corner == 'round' else 'square'
+    join = 'round' if corner == 'round' else 'miter'
+
+    def layer_svg(paths):
+        if not paths:
+            return ''
+        d = ' '.join(paths)
+        return (f'<path d="{d}" fill="none" stroke="{MAZE_WALL_COLOR}" '
+                f'stroke-width="{outer:.1f}" stroke-linecap="{cap}" stroke-linejoin="{join}"/>\n'
+                f'<path d="{d}" fill="none" stroke="#ffffff" '
+                f'stroke-width="{inner:.1f}" stroke-linecap="{cap}" stroke-linejoin="{join}"/>\n')
+
+    svg += layer_svg(layer0)
+    svg += layer_svg(layer1)
+
+    if show_solution and solution_path:
+        pts = [center(cell) for cell in solution_path]
+        # Prolongar entrada/salida hasta cruzar el borde.
+        pts.insert(0, (pts[0][0] - r, pts[0][1]))
+        pts.append((pts[-1][0] + r, pts[-1][1]))
+        svg += _pipe_solution(pts)
 
     svg += _svg_footer()
     return svg
@@ -628,11 +960,11 @@ def render_futoshiki(puzzle, solution, inequalities, style='flat',
         if r1 == r2:  # horizontal: (r1,c1) es la celda de la izquierda
             x = margin + c1 * (cell + gap) + cell + gap / 2
             y = margin + r1 * (cell + gap) + cell / 2
-            svg += _text(x, y, _ineq_symbol(op, vertical=False), st['font_bold'], sym_size, bold=True)
+            svg += _text(x, y, _ineq_symbol(op, vertical=False), st['font'], sym_size, bold=False)
         else:  # vertical: (r1,c1) es la celda de ARRIBA
             x = margin + c1 * (cell + gap) + cell / 2
             y = margin + r1 * (cell + gap) + cell + gap / 2
-            svg += _text(x, y, _ineq_symbol(op, vertical=True), st['font_bold'], sym_size, bold=True)
+            svg += _text(x, y, _ineq_symbol(op, vertical=True), st['font'], sym_size, bold=False)
 
     svg += _svg_footer()
     return svg
@@ -739,52 +1071,95 @@ def render_masyu(puzzle, solution_path, pearls, style='flat', stroke_width=1.5,
 
 # ─── CIRCULAR MAZE ───────────────────────────────────────────────────────────
 
+def _pipe_arc(cx, cy, r, a1, a2, sw=MAZE_WALL_STROKE):
+    """Arco de pared: mismo trazo fino con extremos redondeados que
+    `_pipe_wall`, pero curvo (para los anillos del laberinto circular)."""
+    x1, y1 = cx + r * math.cos(a1), cy + r * math.sin(a1)
+    x2, y2 = cx + r * math.cos(a2), cy + r * math.sin(a2)
+    return (f'<path d="M {x1:.2f} {y1:.2f} A {r:.2f} {r:.2f} 0 0 1 {x2:.2f} {y2:.2f}" '
+            f'fill="none" stroke="{MAZE_WALL_COLOR}" stroke-width="{sw:.1f}" '
+            f'stroke-linecap="round"/>\n')
+
+
+CIRCULAR_RING_WIDTH = 24   # distancia entre anillos (compacto y homogéneo)
+
+
 def render_maze_circular(all_cells, sector_counts, connections, walls, solution_path,
                           style='flat', stroke_width=2.0, show_solution=False):
-    if show_solution:
-        steps = {}
-        for i, (r, s) in enumerate(solution_path):
-            steps[f'Paso {i+1}'] = f'Anillo {r}, Sector {s}'
-        return render_solution_table(steps, 'Laberinto Circular SOLUCIÓN', cols=2)
-
-    st = {**STYLES.get(style, STYLES['flat']), 'stroke_width': stroke_width}
+    """Laberinto circular polar. Solo se dibujan las paredes reales (arcos y
+    radios sin conexión). La entrada y la salida se abren en el borde exterior
+    en sectores opuestos, de modo que el camino atraviesa todo el disco. La
+    solución es una línea roja fina por los centros del camino."""
     rings = len(sector_counts)
-    ring_width = 35
+    ring_width = CIRCULAR_RING_WIDTH
     margin = 20
     R = rings * ring_width + margin
     W = H = R * 2 + margin * 2
     cx, cy = W // 2, H // 2
     svg = _svg_header(W, H)
-    svg += f'<circle cx="{cx}" cy="{cy}" r="{R}" fill="{st["fill_empty"]}" stroke="{st["stroke"]}" stroke-width="{stroke_width}"/>\n'
 
-    conn_set = set(map(frozenset, [frozenset(c) for c in connections]))
-    sol_set = set(solution_path)
+    conn_set = set(connections)
+    # Sectores de entrada/salida (extremos de la solución, sobre el anillo
+    # exterior): ahí NO se dibuja el arco de borde ⇒ apertura que atraviesa.
+    open_outer = set()
+    if solution_path:
+        for cell in (solution_path[0], solution_path[-1]):
+            if cell[0] == rings - 1:
+                open_outer.add(cell[1])
+
+    def sector_angles(ring, s):
+        sc = sector_counts[ring]
+        a1 = 2 * math.pi * s / sc - math.pi/2
+        a2 = 2 * math.pi * (s+1) / sc - math.pi/2
+        return a1, a2
 
     for ring in range(rings):
         sc = sector_counts[ring]
         r_inner = ring * ring_width
         r_outer = (ring + 1) * ring_width
         for s in range(sc):
-            angle1 = 2 * math.pi * s / sc - math.pi/2
-            angle2 = 2 * math.pi * (s+1) / sc - math.pi/2
+            angle1, angle2 = sector_angles(ring, s)
             cell = (ring, s)
-            fill = '#aaaaaa' if (show_solution and cell in sol_set) else st['fill_empty']
 
-            # Draw sector arc
-            x1_i = cx + r_inner * math.cos(angle1)
-            y1_i = cy + r_inner * math.sin(angle1)
-            x2_i = cx + r_inner * math.cos(angle2)
-            y2_i = cy + r_inner * math.sin(angle2)
-            x1_o = cx + r_outer * math.cos(angle1)
-            y1_o = cy + r_outer * math.sin(angle1)
-            x2_o = cx + r_outer * math.cos(angle2)
-            y2_o = cy + r_outer * math.sin(angle2)
+            # Radial: pared hacia el sector siguiente (sentido horario)
+            next_cell = (ring, (s + 1) % sc)
+            if frozenset([cell, next_cell]) not in conn_set:
+                x1 = cx + r_inner * math.cos(angle2)
+                y1 = cy + r_inner * math.sin(angle2)
+                x2 = cx + r_outer * math.cos(angle2)
+                y2 = cy + r_outer * math.sin(angle2)
+                svg += _pipe_wall(x1, y1, x2, y2)
 
-            path = (f'M {x1_i:.2f} {y1_i:.2f} '
-                    f'A {r_inner} {r_inner} 0 0 1 {x2_i:.2f} {y2_i:.2f} '
-                    f'L {x2_o:.2f} {y2_o:.2f} '
-                    f'A {r_outer} {r_outer} 0 0 0 {x1_o:.2f} {y1_o:.2f} Z')
-            svg += f'<path d="{path}" fill="{fill}" stroke="{st["stroke"]}" stroke-width="{stroke_width}"/>\n'
+            # Arco interior: pared hacia el anillo interno (si no hay conexión)
+            if ring > 0:
+                inner_sc = sector_counts[ring - 1]
+                k = sc // inner_sc
+                inner_cell = (ring - 1, s // k)
+                if frozenset([cell, inner_cell]) not in conn_set:
+                    svg += _pipe_arc(cx, cy, r_inner, angle1, angle2)
+
+            # Borde exterior (frontera), abierto en los sectores de entrada/salida
+            if ring == rings - 1 and s not in open_outer:
+                svg += _pipe_arc(cx, cy, r_outer, angle1, angle2)
+
+    if show_solution and solution_path:
+        def cell_center(ring, s):
+            a1, a2 = sector_angles(ring, s)
+            amid = (a1 + a2) / 2
+            rmid = ring * ring_width + ring_width / 2
+            return cx + rmid * math.cos(amid), cy + rmid * math.sin(amid)
+
+        pts = [cell_center(*c) for c in solution_path]
+        # Prolongar los extremos hasta cruzar el borde (efecto entrada/salida).
+        if solution_path[0][0] == rings - 1:
+            a1, a2 = sector_angles(*solution_path[0])
+            amid = (a1 + a2) / 2
+            pts.insert(0, (cx + R * math.cos(amid), cy + R * math.sin(amid)))
+        if solution_path[-1][0] == rings - 1:
+            a1, a2 = sector_angles(*solution_path[-1])
+            amid = (a1 + a2) / 2
+            pts.append((cx + R * math.cos(amid), cy + R * math.sin(amid)))
+        svg += _pipe_solution(pts)
 
     svg += _svg_footer()
     return svg
