@@ -25,8 +25,9 @@ Fuente: "Correcciones aplicacion Cruci.txt" + referencia `Diseños/Crucigramas L
 - ✅ **#7 Puentes y Puente Circular** — confirmados funcionando. NOTA: `maze_round_weave`
   es el MISMO weave ortogonal cuadrado que `maze_weave` con esquinas curvas
   (`corner='round'`), no el laberinto polar del plan #20 original.
-- ⚠️ Pendiente: test flaky `test_weave_maze_conectividad_y_puentes[hard]` (el generador
-  de puentes usa probabilidad y a veces da 0 puentes en hard) — a arreglar aparte.
+- ✅ Arreglado el test flaky `test_weave_maze_conectividad_y_puentes[hard]`: el
+  generador de puentes ahora **garantiza ≥1 puente** (si el azar no colocó ninguno,
+  coloca el primer candidato elegible). Validado: 500 muestras/dificultad, mínimo ≥1.
 
 **Estado global:**
 - ✅ **Fase A, B, C** — hechas.

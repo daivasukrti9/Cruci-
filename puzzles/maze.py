@@ -472,26 +472,50 @@ def generate_weave_maze(rows, cols, difficulty='medium'):
     bridges = {}
     candidates = list(cells)
     random.shuffle(candidates)
-    for (r, c) in candidates:
-        conns_here = [n for n in neighbors4(r, c) if n in cell_set and frozenset([(r, c), n]) in connections]
+
+    def _bridge_spec(r, c):
+        """Si la celda (r,c) es RECTA (grado 2 en un mismo eje), devuelve
+        (axis, pr1, pr2) del puente perpendicular que puede tender; si no es
+        apta (giro, cruce, o fuera de la rejilla), devuelve None."""
+        conns_here = [n for n in neighbors4(r, c)
+                      if n in cell_set and frozenset([(r, c), n]) in connections]
         if len(conns_here) != 2:
-            continue
+            return None
         (r1, c1), (r2, c2) = conns_here
         if r1 == r2 == r and {c1, c2} == {c-1, c+1}:
             axis, perp = 'h', [(r-1, c), (r+1, c)]
         elif c1 == c2 == c and {r1, r2} == {r-1, r+1}:
             axis, perp = 'v', [(r, c-1), (r, c+1)]
         else:
-            continue  # celda con giro: no es apta para un puente
+            return None  # celda con giro: no es apta para un puente
         pr1, pr2 = perp
         if pr1 not in cell_set or pr2 not in cell_set:
+            return None
+        return axis, pr1, pr2
+
+    def _place_bridge(r, c, axis, pr1, pr2):
+        bridges[(r, c)] = axis
+        connections.add(frozenset([pr1, pr2]))
+
+    for (r, c) in candidates:
+        spec = _bridge_spec(r, c)
+        if spec is None:
             continue
+        axis, pr1, pr2 = spec
         if pr1 in bridges or pr2 in bridges:
             continue  # no apilar puentes contiguos
         if random.random() > fraction:
             continue
-        bridges[(r, c)] = axis
-        connections.add(frozenset([pr1, pr2]))
+        _place_bridge(r, c, axis, pr1, pr2)
+
+    # Garantiza AL MENOS un puente (identidad "weave" incluso en difícil): si el
+    # azar no colocó ninguno, coloca el primer candidato elegible que quede.
+    if not bridges:
+        for (r, c) in candidates:
+            spec = _bridge_spec(r, c)
+            if spec is not None:
+                _place_bridge(r, c, *spec)
+                break
 
     # BFS para la solución. Los puentes son aristas normales del grafo (saltan
     # la celda intermedia), así que una lista de adyacencia basta.
