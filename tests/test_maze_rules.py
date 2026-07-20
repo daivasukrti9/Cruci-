@@ -347,11 +347,32 @@ def test_weave_maze_conectividad_y_puentes(difficulty):
     assert sol_path[-1] == (rows - 1, cols - 1)
 
 
-def test_weave_maze_dificil_tiene_menos_puentes_que_kids():
+def test_weave_dificultad_escala_con_cruces_y_ruta():
+    """La dificultad NO depende solo del tamaño de la plantilla: a más difícil,
+    MÁS cruces (cada paso elevado obliga a seguir qué vía continúa) y ruta MÁS
+    larga. Se promedian varias muestras porque la generación es aleatoria."""
     rows, cols = 16, 16
-    _, _, bridges_hard, _, _, _ = M.generate_weave_maze(rows, cols, 'hard')
-    _, _, bridges_kids, _, _, _ = M.generate_weave_maze(rows, cols, 'kids')
-    assert len(bridges_hard) <= len(bridges_kids)
+
+    def sample(diff, n=5):
+        cruces, ruta = [], []
+        for _ in range(n):
+            cells, _, br, sol, _, _ = M.generate_weave_maze(rows, cols, diff)
+            cruces.append(len(br))
+            ruta.append(len(sol) / len(cells))
+        return sum(cruces) / n, sum(ruta) / n
+
+    c_kids, r_kids = sample('kids')
+    c_hard, r_hard = sample('hard')
+    assert c_hard > c_kids, 'difícil debe tener MÁS cruces que kids'
+    assert r_hard > r_kids, 'difícil debe recorrer más tablero que kids'
+
+
+def test_weave_hard_es_laberinto_perfecto():
+    """En difícil no hay trenzado: los cruces van integrados en el árbol, así que
+    el grafo sigue siendo un árbol (aristas == celdas-1) ⇒ RUTA ÚNICA."""
+    cells, connections, bridges, sol, _, _ = M.generate_weave_maze(14, 14, 'hard')
+    assert len(connections) == len(cells) - 1
+    assert len(bridges) >= 1
 
 
 def test_weave_maze_render_svg():

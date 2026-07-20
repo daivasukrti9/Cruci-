@@ -29,6 +29,29 @@ Fuente: "Correcciones aplicacion Cruci.txt" + referencia `Diseños/Crucigramas L
   generador de puentes ahora **garantiza ≥1 puente** (si el azar no colocó ninguno,
   coloca el primer candidato elegible). Validado: 500 muestras/dificultad, mínimo ≥1.
 
+**Rediseño del Laberinto de Puentes (2026-07-20):**
+- ✅ **Render "casing/cinta"**: cada pasillo es un trazo NEGRO grueso (muros) con un
+  trazo BLANCO opaco encima (camino). Tubo al 90% de la celda (10% de separación).
+  Capas: todo el negro → todo el blanco → puente elevado (negro → blanco).
+  `linecap="butt"` + `linejoin="miter"`; el negro de los callejones se alarga solo
+  el grosor del muro para cerrarlos. Entrada/salida = aberturas a ras del margen.
+  Bugs corregidos: la capa del puente iba de p1 a p2 (2 celdas) y tapaba los
+  pasillos de p1/p2 rompiendo conexiones — ahora cubre SOLO la celda saltada;
+  `square` dejaba pegotes; los radios sueltos desde el centro dejaban muescas
+  (ahora son polilíneas conectadas).
+- ✅ **Cruces integrados en el árbol**: el DFS puede SALTAR por encima de un pasillo
+  recto hasta una celda sin visitar. Al aterrizar en celda no visitada la arista
+  sigue siendo de árbol ⇒ **hard es laberinto PERFECTO (ruta única) CON muchos
+  cruces**. Antes los puentes eran aristas extra y cada uno creaba un bucle.
+- ✅ **Dificultad por complejidad de recorrido, no solo por tamaño**: cruces suben
+  con la dificultad (kids 0.15 → hard 0.85), trenzado baja (kids 0.55 → hard 0), y
+  se elige entre 14 candidatos el que más se acerca al objetivo de ruta
+  (kids 15% / easy 25% / medium 35% / hard 48% del tablero). Medido con 20 muestras:
+  rangos SIN solapamiento entre niveles.
+- ⬜ **Pendiente: Laberinto de Puente Circular** — hereda el motor de casing pero aún
+  tiene las "esferas"/bolas en extremos y uniones; falta aplicarle el mismo criterio
+  con arcos de 90°.
+
 **Estado global:**
 - ✅ **Fase A, B, C** — hechas.
 - ✅ **Fase D (Hashi, Masyu, Akari)** — generadores válidos, tamaños puestos,

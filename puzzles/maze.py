@@ -432,90 +432,121 @@ def _braid_generic(cells, neighbors_fn, connections, walls, fraction):
             connections.add(pair)
 
 
-def generate_weave_maze(rows, cols, difficulty='medium'):
+# Cruces (pasos elevados) por dificultad: a MÁS difícil, MÁS cruces. Cada cruce
+# obliga a seguir con la vista qué vía continúa, que es el engaño propio de este
+# juego. Se conservan cruces en todos los niveles para no perder el "tejido".
+_WEAVE_CROSS_BY_DIFFICULTY = {'kids': 0.15, 'easy': 0.35, 'medium': 0.60, 'hard': 0.85}
+# Trenzado: abre callejones y crea atajos ⇒ MÁS fácil y callejones más cortos.
+# En difícil es 0: laberinto perfecto, ruta única y callejones profundos.
+_WEAVE_BRAID_BY_DIFFICULTY = {'kids': 0.55, 'easy': 0.30, 'medium': 0.10, 'hard': 0.0}
+
+_DIRS4 = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+
+
+def _weave_degree(cell, connections):
+    r, c = cell
+    return sum(1 for dr, dc in _DIRS4
+               if frozenset([cell, (r+dr, c+dc)]) in connections)
+
+
+def _weave_straight_axis(cell, connections):
+    """'h'/'v' si la celda ya es un pasillo RECTO (grado 2 sin giro); None si no."""
+    r, c = cell
+    if _weave_degree(cell, connections) != 2:
+        return None
+    if (frozenset([cell, (r, c-1)]) in connections
+            and frozenset([cell, (r, c+1)]) in connections):
+        return 'h'
+    if (frozenset([cell, (r-1, c)]) in connections
+            and frozenset([cell, (r+1, c)]) in connections):
+        return 'v'
+    return None
+
+
+def _braid_weave(cells, cell_set, connections, bridges, fraction):
+    """Abre callejones sin salida (crea atajos ⇒ más fácil y recorridos falsos
+    más cortos). Nunca toca una celda-puente: su pasillo de abajo debe seguir
+    recto para que el paso elevado siga teniendo sentido."""
+    if fraction <= 0:
+        return
+    dead = [c for c in cells
+            if c not in bridges and _weave_degree(c, connections) == 1]
+    random.shuffle(dead)
+    for cell in dead:
+        if random.random() > fraction:
+            continue
+        r, c = cell
+        cand = [(r+dr, c+dc) for dr, dc in _DIRS4
+                if (r+dr, c+dc) in cell_set
+                and (r+dr, c+dc) not in bridges
+                and frozenset([cell, (r+dr, c+dc)]) not in connections]
+        if cand:
+            connections.add(frozenset([cell, random.choice(cand)]))
+
+
+def _weave_once(rows, cols, difficulty):
     """
-    Laberinto de PUENTES (weave): un laberinto rectangular normal (DFS) al que,
-    tras la carva inicial, se le añaden "saltos": en cada celda recta (grado 2,
-    con sus dos conexiones en un mismo eje, sin giro) se puede tender un puente
-    perpendicular que conecta DIRECTAMENTE a sus dos vecinas del otro eje,
-    pasando por ENCIMA de esa celda sin tocarla — el pasillo original bajo el
-    puente se conserva intacto. Así el camino puede cruzarse a sí mismo sin
-    intersección real, como un paso elevado.
+    Laberinto de PUENTES (weave) con los cruces INTEGRADOS en el carvado: al
+    avanzar, el DFS puede dar un paso normal a una celda sin visitar, o bien
+    SALTAR por encima de un pasillo recto ya hecho hasta la celda siguiente
+    (paso elevado). Como el salto también aterriza en una celda SIN visITAR, la
+    arista sigue siendo de árbol: el laberinto es PERFECTO (ruta única) aunque
+    tenga muchos cruces. Antes los puentes se añadían al final como aristas
+    extra, y cada uno creaba un bucle (atajos) — por eso la dificultad salía
+    plana e invertida.
+    `difficulty` sube los cruces y baja el trenzado conforme sube la dificultad.
     Returns (cells, connections, bridges, solution_path, rows, cols).
-    bridges: dict {mid_cell: axis_bajo_el_puente} ('h' o 'v').
+    bridges: dict {celda_saltada: eje del pasillo de abajo} ('h' o 'v').
     """
     cells = [(r, c) for r in range(rows) for c in range(cols)]
     cell_set = set(cells)
+    p_cross = _WEAVE_CROSS_BY_DIFFICULTY.get(difficulty, 0.60)
 
-    def neighbors4(r, c):
-        return [(r, c-1), (r, c+1), (r-1, c), (r+1, c)]
-
-    visited = set()
     connections = set()
-
-    def carve(r, c):
-        visited.add((r, c))
-        dirs = [(0, 1), (0, -1), (1, 0), (-1, 0)]
-        random.shuffle(dirs)
-        for dr, dc in dirs:
-            nr, nc = r+dr, c+dc
-            if (nr, nc) in cell_set and (nr, nc) not in visited:
-                connections.add(frozenset([(r, c), (nr, nc)]))
-                carve(nr, nc)
-
-    carve(0, 0)
-
-    # Puentes: siempre hay una fracción mínima para que el laberinto conserve
-    # su identidad de "weave" incluso en difícil (menos puentes = más difícil,
-    # pero nunca cero).
-    fraction = max(0.12, _BRAID_BY_DIFFICULTY.get(difficulty, 0.05))
     bridges = {}
-    candidates = list(cells)
-    random.shuffle(candidates)
+    start_cell = (0, 0)
+    visited = {start_cell}
+    stack = [start_cell]
 
-    def _bridge_spec(r, c):
-        """Si la celda (r,c) es RECTA (grado 2 en un mismo eje), devuelve
-        (axis, pr1, pr2) del puente perpendicular que puede tender; si no es
-        apta (giro, cruce, o fuera de la rejilla), devuelve None."""
-        conns_here = [n for n in neighbors4(r, c)
-                      if n in cell_set and frozenset([(r, c), n]) in connections]
-        if len(conns_here) != 2:
-            return None
-        (r1, c1), (r2, c2) = conns_here
-        if r1 == r2 == r and {c1, c2} == {c-1, c+1}:
-            axis, perp = 'h', [(r-1, c), (r+1, c)]
-        elif c1 == c2 == c and {r1, r2} == {r-1, r+1}:
-            axis, perp = 'v', [(r, c-1), (r, c+1)]
+    while stack:
+        cur = stack[-1]
+        if cur in bridges:
+            # Celda bajo un paso elevado: queda BLOQUEADA para que su pasillo
+            # siga recto. No pierde nada: al saltarla, su única vecina sin
+            # visitar era justo el destino del salto (las otras dos ya están
+            # conectadas en el corredor).
+            stack.pop()
+            continue
+        r, c = cur
+        steps, jumps = [], []
+        for dr, dc in _DIRS4:
+            nxt = (r+dr, c+dc)
+            if nxt not in cell_set:
+                continue
+            if nxt not in visited:
+                steps.append(nxt)
+                continue
+            # Salto por encima de `nxt` (que debe ser un pasillo RECTO
+            # perpendicular al salto) hasta la celda siguiente sin visitar.
+            jump = (r + 2*dr, c + 2*dc)
+            if (jump in cell_set and jump not in visited
+                    and nxt not in bridges
+                    and _weave_straight_axis(nxt, connections) == ('h' if dr else 'v')):
+                jumps.append((jump, nxt))
+        if not steps and not jumps:
+            stack.pop()
+            continue
+        if jumps and (not steps or random.random() < p_cross):
+            nxt, mid = random.choice(jumps)
+            bridges[mid] = _weave_straight_axis(mid, connections)
         else:
-            return None  # celda con giro: no es apta para un puente
-        pr1, pr2 = perp
-        if pr1 not in cell_set or pr2 not in cell_set:
-            return None
-        return axis, pr1, pr2
+            nxt = random.choice(steps)
+        connections.add(frozenset([cur, nxt]))
+        visited.add(nxt)
+        stack.append(nxt)
 
-    def _place_bridge(r, c, axis, pr1, pr2):
-        bridges[(r, c)] = axis
-        connections.add(frozenset([pr1, pr2]))
-
-    for (r, c) in candidates:
-        spec = _bridge_spec(r, c)
-        if spec is None:
-            continue
-        axis, pr1, pr2 = spec
-        if pr1 in bridges or pr2 in bridges:
-            continue  # no apilar puentes contiguos
-        if random.random() > fraction:
-            continue
-        _place_bridge(r, c, axis, pr1, pr2)
-
-    # Garantiza AL MENOS un puente (identidad "weave" incluso en difícil): si el
-    # azar no colocó ninguno, coloca el primer candidato elegible que quede.
-    if not bridges:
-        for (r, c) in candidates:
-            spec = _bridge_spec(r, c)
-            if spec is not None:
-                _place_bridge(r, c, *spec)
-                break
+    _braid_weave(cells, cell_set, connections, bridges,
+                 _WEAVE_BRAID_BY_DIFFICULTY.get(difficulty, 0.10))
 
     # BFS para la solución. Los puentes son aristas normales del grafo (saltan
     # la celda intermedia), así que una lista de adyacencia basta.
@@ -541,4 +572,27 @@ def generate_weave_maze(rows, cols, difficulty='medium'):
                 queue.append((nb, path+[nb]))
 
     return cells, list(connections), bridges, solution_path, rows, cols
+
+
+# Fracción del tablero que debería recorrer la ruta correcta en cada nivel. El
+# carvado es aleatorio y su varianza es alta, así que se generan varios
+# candidatos y se elige el que mejor se ajusta: si no, un "fácil" puede salir
+# más largo que un "medio", que es inaceptable en un libro.
+_WEAVE_ROUTE_TARGET = {'kids': 0.15, 'easy': 0.25, 'medium': 0.35, 'hard': 0.48}
+
+
+def generate_weave_maze(rows, cols, difficulty='medium', attempts=14):
+    """Laberinto de puentes ajustado al objetivo de ruta de su dificultad.
+    Ver `_weave_once` para el algoritmo de carvado con cruces integrados."""
+    target = _WEAVE_ROUTE_TARGET.get(difficulty, 0.35)
+    best, best_err = None, None
+    for _ in range(attempts):
+        res = _weave_once(rows, cols, difficulty)
+        cells, _, _, sol, _, _ = res
+        err = abs(len(sol) / len(cells) - target)
+        if best_err is None or err < best_err:
+            best, best_err = res, err
+        if err <= 0.04:                 # suficientemente cerca del objetivo
+            break
+    return best
 

@@ -688,12 +688,30 @@ def render_maze_tri_sq(cells, connections, walls, solution_path, rows, cols,
 # `corner='sharp'` da esquinas rectas (Bridge); `corner='round'` da curvas de
 # 90° (Round Bridge). Las paredes son el negro que queda entre pasillos.
 
-def _corridor_paths(cx, cy, dirs, r, corner):
+def _corridor_paths(cx, cy, dirs, r, corner, tip=0.0):
     """Segmentos SVG (d-strings) del pasillo de una celda hacia sus direcciones
     conectadas. En 'round', un pasillo en L se dibuja como arco de 90°."""
     ends = {'N': (cx, cy - r), 'S': (cx, cy + r),
             'W': (cx - r, cy), 'E': (cx + r, cy)}
+    opp = {'N': 'S', 'S': 'N', 'W': 'E', 'E': 'W'}
     dset = set(dirs)
+    if len(dset) == 1:
+        # Callejón sin salida: el tubo entra por el borde conectado, cruza el
+        # centro y llena la celda hasta cerca de la pared muerta (no un muñón
+        # que corta en el centro sin sentido).
+        d = next(iter(dset))
+        ex, ey = ends[d]
+        ox, oy = ends[opp[d]]
+        fx, fy = cx + (ox - cx) * 0.55, cy + (oy - cy) * 0.55
+        if tip:
+            # El trazo NEGRO se alarga justo el grosor del muro para cerrar la
+            # punta del callejón (con 'square' se desbordaría medio grosor y
+            # dejaría un pegote negro).
+            ux, uy = ox - cx, oy - cy
+            n = (ux * ux + uy * uy) ** 0.5 or 1.0
+            fx += ux / n * tip
+            fy += uy / n * tip
+        return [f'M {ex:.1f} {ey:.1f} L {fx:.1f} {fy:.1f}']
     if corner == 'round' and len(dset) == 2:
         if dset == {'N', 'S'}:
             return [f'M {cx:.1f} {cy-r:.1f} L {cx:.1f} {cy+r:.1f}']
@@ -707,9 +725,24 @@ def _corridor_paths(cx, cy, dirs, r, corner):
         }.get(frozenset(dset))
         if arc:
             return [arc]
-    # sharp, o celdas rectas/cruce/fin: radios desde el centro a cada salida.
-    return [f'M {cx:.1f} {cy:.1f} L {ex:.1f} {ey:.1f}' for d in dset
-            for (ex, ey) in [ends[d]]]
+    # Trazos CONECTADOS (no radios sueltos): así el 'miter' cierra las esquinas
+    # sin muescas y no quedan extremos encimados.
+    paths = []
+    rest = set(dset)
+    for a, b in (('N', 'S'), ('W', 'E')):
+        if a in rest and b in rest:
+            (ax, ay), (bx, by) = ends[a], ends[b]
+            paths.append(f'M {ax:.1f} {ay:.1f} L {cx:.1f} {cy:.1f} L {bx:.1f} {by:.1f}')
+            rest -= {a, b}
+    if len(rest) == 2:                       # giro en L: un solo trazo con vértice
+        a, b = tuple(rest)
+        (ax, ay), (bx, by) = ends[a], ends[b]
+        paths.append(f'M {ax:.1f} {ay:.1f} L {cx:.1f} {cy:.1f} L {bx:.1f} {by:.1f}')
+        rest.clear()
+    for d in rest:                           # ramal suelto (T): del centro al borde
+        ex, ey = ends[d]
+        paths.append(f'M {cx:.1f} {cy:.1f} L {ex:.1f} {ey:.1f}')
+    return paths
 
 
 def render_maze_weave(cells, connections, bridges, solution_path, rows, cols,
@@ -725,8 +758,8 @@ def render_maze_weave(cells, connections, bridges, solution_path, rows, cols,
     # completa (grosor S) y el BLANCO va encima (grosor S·0.65). Así el negro de
     # celdas contiguas se funde en una masa y las PAREDES son las franjas negras
     # (≈ S·0.175 por lado) que quedan entre los pasillos blancos.
-    outer = S            # contorno negro (100 % de la celda)
-    inner = S * 0.65     # relleno blanco del pasillo transitable
+    outer = S * 0.90     # ancho del TUBO (90%: solo ~10% de separación entre tubos)
+    inner = outer - 6.0  # relleno blanco; deja ~3px de contorno negro por lado
     W = margin * 2 + cols * S
     H = margin * 2 + rows * S
     svg = _svg_header(W, H)
@@ -741,45 +774,67 @@ def render_maze_weave(cells, connections, bridges, solution_path, rows, cols,
     # que son conexiones de distancia 2 y se dibujan aparte en la capa superior).
     DIRS = {'N': (-1, 0), 'S': (1, 0), 'W': (0, -1), 'E': (0, 1)}
 
+    # Los extremos del puente (p1/p2) llevan su pasillo HACIA la celda saltada en
+    # la capa inferior, para que se una con 'miter' al resto de sus pasillos. Si
+    # se dibujara como una banda de p1 a p2 en la capa superior, esa banda taparía
+    # los otros pasillos de p1/p2 y rompería sus conexiones.
+    extra_dirs = {}
+    for (br, bc), axis in bridges.items():
+        if axis == 'h':                    # bajo horizontal ⇒ elevado vertical
+            extra_dirs.setdefault((br-1, bc), []).append('S')
+            extra_dirs.setdefault((br+1, bc), []).append('N')
+        else:                              # bajo vertical ⇒ elevado horizontal
+            extra_dirs.setdefault((br, bc-1), []).append('E')
+            extra_dirs.setdefault((br, bc+1), []).append('W')
+
     def cell_dirs(cell):
         rr, cc = cell
         ds = [d for d, (dr, dc) in DIRS.items()
               if frozenset([cell, (rr+dr, cc+dc)]) in conn_set]
+        ds += extra_dirs.get(cell, [])
         if cell == (0, 0):
-            ds.append('W')                 # entrada (izquierda)
+            ds.append('W')                 # entrada (abertura en el borde izq.)
         if cell == (rows-1, cols-1):
-            ds.append('E')                 # salida (derecha)
+            ds.append('E')                 # salida (abertura en el borde der.)
         return ds
 
-    layer0 = []   # pasillos normales + parte "bajo" de los puentes
+    # Dos versiones de la capa inferior: la NEGRA alarga la punta de los callejones
+    # el grosor del muro (para cerrarlos); la BLANCA termina exacta.
+    wall = (outer - inner) / 2.0
+    layer0_k, layer0_w = [], []
     for cell in cells:
         cx, cy = center(cell)
-        layer0 += _corridor_paths(cx, cy, cell_dirs(cell), r, corner)
+        ds = cell_dirs(cell)
+        layer0_k += _corridor_paths(cx, cy, ds, r, corner, tip=wall)
+        layer0_w += _corridor_paths(cx, cy, ds, r, corner)
 
-    layer1 = []   # parte "elevada" de los puentes (recta, sobre la celda saltada)
+
+    # Capa superior: SOLO el tramo que cruza la celda saltada (de borde a borde).
+    layer1 = []
     for (br, bc), axis in bridges.items():
-        if axis == 'h':                    # bajo pasa horizontal ⇒ elevado vertical
-            p1, p2 = (br-1, bc), (br+1, bc)
-        else:                              # bajo pasa vertical ⇒ elevado horizontal
-            p1, p2 = (br, bc-1), (br, bc+1)
-        x1, y1 = center(p1)
-        x2, y2 = center(p2)
-        layer1.append(f'M {x1:.1f} {y1:.1f} L {x2:.1f} {y2:.1f}')
+        bx, by = center((br, bc))
+        if axis == 'h':                    # bajo horizontal ⇒ elevado vertical
+            layer1.append(f'M {bx:.1f} {by-r:.1f} L {bx:.1f} {by+r:.1f}')
+        else:                              # bajo vertical ⇒ elevado horizontal
+            layer1.append(f'M {bx-r:.1f} {by:.1f} L {bx+r:.1f} {by:.1f}')
 
-    cap = 'round' if corner == 'round' else 'square'
     join = 'round' if corner == 'round' else 'miter'
 
-    def layer_svg(paths):
+    def stroke(paths, width, color, cap):
         if not paths:
             return ''
         d = ' '.join(paths)
-        return (f'<path d="{d}" fill="none" stroke="{MAZE_WALL_COLOR}" '
-                f'stroke-width="{outer:.1f}" stroke-linecap="{cap}" stroke-linejoin="{join}"/>\n'
-                f'<path d="{d}" fill="none" stroke="#ffffff" '
-                f'stroke-width="{inner:.1f}" stroke-linecap="{cap}" stroke-linejoin="{join}"/>\n')
+        return (f'<path d="{d}" fill="none" stroke="{color}" '
+                f'stroke-width="{width:.1f}" stroke-linecap="{cap}" '
+                f'stroke-linejoin="{join}"/>\n')
 
-    svg += layer_svg(layer0)
-    svg += layer_svg(layer1)
+    # Capa 1 (inferior): todo el negro (muros) antes que todo el blanco (camino).
+    svg += stroke(layer0_k, outer, MAZE_WALL_COLOR, 'butt')   # muros
+    svg += stroke(layer0_w, inner, '#ffffff', 'butt')         # camino libre
+    # Capa 2 (superior): pasos ELEVADOS. Aquí 'butt' en ambos: el negro debe cubrir
+    # SOLO la celda saltada, sin invadir los pasillos de p1/p2.
+    svg += stroke(layer1, outer, MAZE_WALL_COLOR, 'butt')
+    svg += stroke(layer1, inner, '#ffffff', 'butt')
 
     if show_solution and solution_path:
         pts = [center(cell) for cell in solution_path]
