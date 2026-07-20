@@ -810,16 +810,16 @@ def render_maze_weave(cells, connections, bridges, solution_path, rows, cols,
     inner = outer - 6.0  # relleno blanco; deja ~3px de contorno negro por lado
     W = margin * 2 + cols * S
     H = margin * 2 + rows * S
-    # 'sharp' es 100% ortogonal (sin curvas): shape-rendering="crispEdges" apaga
-    # el antialiasing y fuerza los bordes al píxel exacto. Sin esto, dos trazos
-    # del mismo color que se TOCAN en un borde matemático (p.ej. el fondo de un
-    # grupo de puentes con el tubo blanco de cada uno, o dos celdas contiguas)
-    # dejan una costura gris translúcida ahí donde el antialiasing de cada
-    # trazo se difumina por separado contra el fondo en vez de fundirse entre
-    # sí. 'round' conserva el antialiasing (tiene arcos; crispEdges los vería
-    # dentados) — ese estilo se revisa aparte.
-    extra = ' shape-rendering="crispEdges"' if corner == 'sharp' else ''
-    svg = _svg_header(W, H, extra)
+    # shape-rendering="crispEdges" apaga el antialiasing y fuerza los bordes al
+    # píxel exacto. Sin esto, dos trazos del mismo color que se TOCAN en un
+    # borde matemático (p.ej. el fondo de un grupo de puentes con el tubo
+    # blanco de cada uno, o dos celdas contiguas) dejan una costura gris
+    # translúcida ahí donde el antialiasing de cada trazo se difumina por
+    # separado contra el fondo en vez de fundirse entre sí. Se aplica también
+    # en 'round': sus curvas ya no son arcos ('A') a mano, sino el mismo
+    # trazado recto de 'sharp' con stroke-linejoin="round" nativo — a esta
+    # escala crispEdges no las dentea de forma perceptible.
+    svg = _svg_header(W, H, ' shape-rendering="crispEdges"')
 
     conn_set = set(connections)
 
