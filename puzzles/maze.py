@@ -9,7 +9,46 @@ import math
 _BRAID_BY_DIFFICULTY = {'kids': 0.6, 'easy': 0.3, 'medium': 0.05, 'hard': 0.0}
 
 
-def generate_rectangular_maze(rows, cols, difficulty='medium'):
+def _best_of_route_target(gen_once, extract_route_cells, ncells, target,
+                           attempts=16, tol=0.03):
+    """Genera hasta `attempts` laberintos y se queda con el que más se acerca a
+    `target` (fracción del tablero que recorre la ruta correcta). La generación
+    por DFS/braid tiene mucha varianza de una tirada a otra; sin esto, un nivel
+    'fácil' puede salir por azar más largo que un 'difícil'. Mismo patrón que
+    `generate_weave_maze`."""
+    best, best_err = None, None
+    for _ in range(attempts):
+        res = gen_once()
+        err = abs(extract_route_cells(res) / ncells - target)
+        if best_err is None or err < best_err:
+            best, best_err = res, err
+        if err <= tol:
+            break
+    return best
+
+
+# Fracción del tablero que debe recorrer la ruta correcta en cada nivel, por
+# tipo de laberinto (cada geometría tiene un techo distinto de longitud
+# alcanzable). A más difícil, ruta más larga: obliga a cruzar más tablero en
+# vez de solo variar el tamaño de la plantilla.
+_RECT_ROUTE_TARGET = {'kids': 0.18, 'easy': 0.28, 'medium': 0.40, 'hard': 0.55}
+
+
+def generate_rectangular_maze(rows, cols, difficulty='medium', attempts=16):
+    """Laberinto rectangular ajustado al objetivo de ruta de su dificultad.
+    Ver `_rect_maze_once` para el algoritmo de carvado (DFS + braid)."""
+    target = _RECT_ROUTE_TARGET.get(difficulty, 0.40)
+
+    def route_cells(res):
+        _, sol = res
+        return sum(1 for r, c in sol if r % 2 == 1 and c % 2 == 1)
+
+    return _best_of_route_target(
+        lambda: _rect_maze_once(rows, cols, difficulty),
+        route_cells, rows * cols, target, attempts)
+
+
+def _rect_maze_once(rows, cols, difficulty='medium'):
     """
     Classic rectangular maze using recursive backtracking (DFS).
     Returns (maze, solution_path) where maze is a 2D grid (1=pared, 0=paso).
@@ -139,7 +178,20 @@ def hex_offset_neighbors(row, col):
                 (row+1, col), (row+1, col+1)]
 
 
-def generate_hexagonal_maze(rows, cols, difficulty='medium'):
+_HEX_ROUTE_TARGET = {'kids': 0.18, 'easy': 0.28, 'medium': 0.40, 'hard': 0.55}
+
+
+def generate_hexagonal_maze(rows, cols, difficulty='medium', attempts=16):
+    """Laberinto hexagonal ajustado al objetivo de ruta de su dificultad.
+    Ver `_hex_maze_once` para el algoritmo de carvado (DFS + braid)."""
+    target = _HEX_ROUTE_TARGET.get(difficulty, 0.40)
+    ncells = rows * cols
+    return _best_of_route_target(
+        lambda: _hex_maze_once(rows, cols, difficulty),
+        lambda res: len(res[3]), ncells, target, attempts)
+
+
+def _hex_maze_once(rows, cols, difficulty='medium'):
     """
     Laberinto hexagonal sobre coordenadas OFFSET "odd-r" (contorno rectangular)
     con hexágonos pointy-top y 6 vecinos por celda. Se genera con DFS
@@ -210,7 +262,20 @@ def tri_neighbors(r, c, size):
     return nbrs
 
 
-def generate_triangular_maze(size, difficulty='medium'):
+_TRI_ROUTE_TARGET = {'kids': 0.15, 'easy': 0.22, 'medium': 0.30, 'hard': 0.42}
+
+
+def generate_triangular_maze(size, difficulty='medium', attempts=16):
+    """Laberinto triangular equilátero ajustado al objetivo de ruta de su
+    dificultad. Ver `_tri_maze_once` para el algoritmo de carvado."""
+    target = _TRI_ROUTE_TARGET.get(difficulty, 0.30)
+    ncells = size * size
+    return _best_of_route_target(
+        lambda: _tri_maze_once(size, difficulty),
+        lambda res: len(res[3]), ncells, target, attempts)
+
+
+def _tri_maze_once(size, difficulty='medium'):
     """
     Laberinto sobre una malla TRIANGULAR con forma de triángulo equilátero: la
     fila r tiene 2·r+1 celdas triangulares (▲ si c par, ▽ si c impar), 3 vecinos
@@ -278,7 +343,20 @@ def tri_sq_neighbors(r, c, rows, cols):
     return nbrs
 
 
-def generate_triangular_sq_maze(rows, cols, difficulty='medium'):
+_TRISQ_ROUTE_TARGET = {'kids': 0.15, 'easy': 0.24, 'medium': 0.34, 'hard': 0.48}
+
+
+def generate_triangular_sq_maze(rows, cols, difficulty='medium', attempts=16):
+    """Laberinto triangular de contorno cuadrado ajustado al objetivo de ruta
+    de su dificultad. Ver `_tri_sq_maze_once` para el algoritmo de carvado."""
+    target = _TRISQ_ROUTE_TARGET.get(difficulty, 0.34)
+    ncells = rows * cols
+    return _best_of_route_target(
+        lambda: _tri_sq_maze_once(rows, cols, difficulty),
+        lambda res: len(res[3]), ncells, target, attempts)
+
+
+def _tri_sq_maze_once(rows, cols, difficulty='medium'):
     """
     Laberinto TRIANGULAR de contorno RECTANGULAR/cuadrado: rejilla de rows×cols
     triángulos (▲ si (r+c) par, ▽ si impar), 3 vecinos. Se genera con DFS
@@ -333,7 +411,20 @@ def _ring_sector_counts(rings, sectors_per_ring):
     return counts
 
 
-def generate_circular_maze(rings, sectors_per_ring=8, difficulty='medium'):
+_CIRC_ROUTE_TARGET = {'kids': 0.13, 'easy': 0.19, 'medium': 0.26, 'hard': 0.35}
+
+
+def generate_circular_maze(rings, sectors_per_ring=8, difficulty='medium', attempts=16):
+    """Laberinto circular ajustado al objetivo de ruta de su dificultad. Ver
+    `_circular_maze_once` para el algoritmo de carvado (DFS + braid)."""
+    target = _CIRC_ROUTE_TARGET.get(difficulty, 0.26)
+    ncells = sum(_ring_sector_counts(rings, sectors_per_ring))
+    return _best_of_route_target(
+        lambda: _circular_maze_once(rings, sectors_per_ring, difficulty),
+        lambda res: len(res[4]), ncells, target, attempts)
+
+
+def _circular_maze_once(rings, sectors_per_ring=8, difficulty='medium'):
     """
     Laberinto circular polar con subdivisión real de anillos (más sectores
     hacia afuera) y generación por el algoritmo de PRIM (frontera aleatoria).

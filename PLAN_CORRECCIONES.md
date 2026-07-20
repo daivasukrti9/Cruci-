@@ -6,7 +6,37 @@ Fuente: "Correcciones aplicacion Cruci.txt" + referencia `Diseños/Crucigramas L
 
 ## ▶️ PUNTO DE CONTINUACIÓN (leer primero al abrir sesión nueva)
 
-**Última actualización:** 2026-07-18 · Último commit previo: `6a2d2d7`.
+**Última actualización:** 2026-07-20 · Último commit previo: `80d62b6`.
+
+**Rediseño de dificultad para TODOS los laberintos + arreglos visuales del Puente (2026-07-20):**
+- ✅ **Tabla de dificultad para rect/hex/triangular/triangular-cuadrado/circular** — tenían el
+  mismo problema que weave (ver abajo): solo controlaban trenzado, sin objetivo de ruta.
+  Medido: rectangular medium>hard invertido (43%/47% casi iguales), hexagonal y circular
+  con inversión en la cima, triangular casi plano (19-28% en los 4 niveles), varianza
+  enorme (rangos 2-4x) en todos. Aplicado el mismo patrón que weave: cada
+  `generate_*_maze` ahora envuelve un `_*_once` interno y genera hasta 16 candidatos,
+  quedándose con el más cercano al objetivo de ruta de su dificultad (tablas
+  `_RECT/_HEX/_TRI/_TRISQ/_CIRC_ROUTE_TARGET`). Verificado con 20 muestras/nivel:
+  rangos SIN solapamiento en los 5 tipos. 5 tests nuevos (`test_*_dificultad_escala_con_ruta`).
+- ✅ **Puente: máscara continua para grupos de puentes contiguos** — cuando 2+ puentes son
+  vecinos (misma fila/columna, mismo eje), se agrupan (`_weave_bridge_groups`) y se tapan
+  con una franja negra sólida en todo el tramo, antes de dibujar cada tubo blanco
+  individual. Sin esto, el hueco de pared entre puentes vecinos dejaba asomar el borde
+  del pasillo de abajo.
+- ✅ **Puente: solución dividida en tramos suelo/elevado** — la ruta roja ahora se dibuja en
+  el momento correcto de la pila de capas (`_weave_solution_layers`): los tramos que usan
+  el paso de ABAJO se dibujan antes de los puentes (así un puente ajeno que cruce por
+  encima los oculta); los tramos que usan el SALTO elevado se dibujan al final (se ven
+  limpios sobre el tubo). Grosor subido de 2.6 a 4.6 (`WEAVE_SOLUTION_STROKE`).
+- ✅ **Puente: costura gris (antialiasing seam) eliminada** — cuando dos trazos del mismo
+  color se tocan en un borde matemático exacto (p.ej. fondo del grupo de puentes con el
+  pasillo de abajo), el antialiasing dejaba una línea gris translúcida visible en la
+  plantilla. Corregido con `shape-rendering="crispEdges"` (SOLO en `corner='sharp'`, ya
+  que el laberinto de puentes es 100% ortogonal; `round` conserva antialiasing por sus
+  arcos — pendiente de revisión aparte).
+- ⬜ **Pendiente: Laberinto de Puente Circular (`corner='round'`)** — hereda el motor de
+  casing y la tabla de dificultad, pero aún tiene las "esferas"/bolas en extremos y
+  uniones curvas; falta aplicarle el mismo criterio con arcos de 90°.
 
 **Ronda de correcciones adicionales (reporte del usuario, 2026-07-18) — HECHAS:**
 - ✅ **#1 KenKen** — tamaños 9×9 y 12×12 (catálogo + clamp `app.py`).

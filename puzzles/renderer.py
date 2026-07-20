@@ -30,10 +30,10 @@ STYLES = {
 }
 
 
-def _svg_header(width, height):
+def _svg_header(width, height, extra_attrs=''):
     return (f'<svg xmlns="http://www.w3.org/2000/svg" '
             f'width="{width}" height="{height}" '
-            f'viewBox="0 0 {width} {height}">\n'
+            f'viewBox="0 0 {width} {height}"{extra_attrs}>\n'
             f'<rect width="{width}" height="{height}" fill="white"/>\n')
 
 
@@ -72,6 +72,7 @@ MAZE_WALL_COLOR = '#000000'
 MAZE_SOLUTION_COLOR = '#e63232'
 MAZE_WALL_STROKE = 2.6        # grosor único de pared para TODOS los laberintos
 MAZE_SOLUTION_STROKE = 2.6    # grosor de la línea de solución (roja)
+WEAVE_SOLUTION_STROKE = 4.6   # línea de solución del weave: más gruesa (tubo ancho)
 
 
 def _pipe_wall(x1, y1, x2, y2, sw=MAZE_WALL_STROKE, color=MAZE_WALL_COLOR):
@@ -745,6 +746,72 @@ def _corridor_paths(cx, cy, dirs, r, corner, tip=0.0):
     return paths
 
 
+def _weave_bridge_groups(bridges):
+    """Agrupa puentes CONTIGUOS con el mismo eje de puente elevado (misma fila
+    para elevado vertical, misma columna para elevado horizontal). Sin agrupar,
+    el hueco de pared entre dos puentes vecinos deja asomar el borde del
+    pasillo de abajo: una 'ventanita' que rompe el efecto de paso elevado
+    limpio. Devuelve [(axis, [celdas ordenadas]), ...]."""
+    used = set()
+    groups = []
+    for cell, axis in bridges.items():
+        if cell in used:
+            continue
+        r0, c0 = cell
+        if axis == 'h':            # elevado vertical: agrupar por FILA
+            xs = [c0]
+            c = c0 + 1
+            while (r0, c) in bridges and bridges[(r0, c)] == 'h':
+                xs.append(c); c += 1
+            c = c0 - 1
+            while (r0, c) in bridges and bridges[(r0, c)] == 'h':
+                xs.append(c); c -= 1
+            xs.sort()
+            member_cells = [(r0, x) for x in xs]
+        else:                        # elevado horizontal: agrupar por COLUMNA
+            ys = [r0]
+            rr = r0 + 1
+            while (rr, c0) in bridges and bridges[(rr, c0)] == 'v':
+                ys.append(rr); rr += 1
+            rr = r0 - 1
+            while (rr, c0) in bridges and bridges[(rr, c0)] == 'v':
+                ys.append(rr); rr -= 1
+            ys.sort()
+            member_cells = [(y, c0) for y in ys]
+        used.update(member_cells)
+        groups.append((axis, member_cells))
+    return groups
+
+
+def _weave_solution_layers(solution_path, center, r):
+    """Separa la ruta de solución en tramos de SUELO (pasos normales, 1 celda)
+    y tramos de PUENTE (saltos de 2 celdas, usan el paso elevado). Los de suelo
+    se dibujan ANTES de los puentes, para que un puente que cruce por encima
+    los oculte (no debe tocar/verse sobre otro camino); los de puente se
+    dibujan DESPUÉS, sobre el tubo elevado. Devuelve [(tag, [puntos]), ...]."""
+    segments = []
+    run = [solution_path[0]]
+    for i in range(len(solution_path) - 1):
+        a, b = solution_path[i], solution_path[i + 1]
+        if abs(a[0]-b[0]) + abs(a[1]-b[1]) == 2:   # salto elevado
+            if len(run) > 1:
+                segments.append(('ground', run))
+            segments.append(('elevated', [a, b]))
+            run = [b]
+        else:
+            run.append(b)
+    if len(run) > 1:
+        segments.append(('ground', run))
+
+    pt_segments = [(tag, [center(c) for c in cells]) for tag, cells in segments]
+    if pt_segments:
+        pts0 = pt_segments[0][1]
+        pts0.insert(0, (pts0[0][0] - r, pts0[0][1]))
+        ptsN = pt_segments[-1][1]
+        ptsN.append((ptsN[-1][0] + r, ptsN[-1][1]))
+    return pt_segments
+
+
 def render_maze_weave(cells, connections, bridges, solution_path, rows, cols,
                       style='flat', stroke_width=2.0, show_solution=False,
                       cell_size=26, corner='sharp'):
@@ -762,7 +829,16 @@ def render_maze_weave(cells, connections, bridges, solution_path, rows, cols,
     inner = outer - 6.0  # relleno blanco; deja ~3px de contorno negro por lado
     W = margin * 2 + cols * S
     H = margin * 2 + rows * S
-    svg = _svg_header(W, H)
+    # 'sharp' es 100% ortogonal (sin curvas): shape-rendering="crispEdges" apaga
+    # el antialiasing y fuerza los bordes al píxel exacto. Sin esto, dos trazos
+    # del mismo color que se TOCAN en un borde matemático (p.ej. el fondo de un
+    # grupo de puentes con el tubo blanco de cada uno, o dos celdas contiguas)
+    # dejan una costura gris translúcida ahí donde el antialiasing de cada
+    # trazo se difumina por separado contra el fondo en vez de fundirse entre
+    # sí. 'round' conserva el antialiasing (tiene arcos; crispEdges los vería
+    # dentados) — ese estilo se revisa aparte.
+    extra = ' shape-rendering="crispEdges"' if corner == 'sharp' else ''
+    svg = _svg_header(W, H, extra)
 
     conn_set = set(connections)
 
@@ -818,9 +894,22 @@ def render_maze_weave(cells, connections, bridges, solution_path, rows, cols,
         else:                              # bajo vertical ⇒ elevado horizontal
             layer1.append(f'M {bx-r:.1f} {by:.1f} L {bx+r:.1f} {by:.1f}')
 
+    # Fondo de cada GRUPO de puentes contiguos: una franja NEGRA continua del
+    # ancho completo de celda (S, sin el 10% de separación de los tubos
+    # normales) que cubre TODO el tramo. Sin esto, el pasillo de abajo asoma
+    # su borde por el hueco de pared entre dos puentes vecinos.
+    masks = []
+    for axis, member_cells in _weave_bridge_groups(bridges):
+        fx, fy = center(member_cells[0])
+        lx, ly = center(member_cells[-1])
+        if axis == 'h':
+            masks.append(f'M {fx-r:.1f} {fy:.1f} L {lx+r:.1f} {fy:.1f}')
+        else:
+            masks.append(f'M {fx:.1f} {fy-r:.1f} L {fx:.1f} {ly+r:.1f}')
+
     join = 'round' if corner == 'round' else 'miter'
 
-    def stroke(paths, width, color, cap):
+    def stroke(paths, width, color, cap, sw=None):
         if not paths:
             return ''
         d = ' '.join(paths)
@@ -828,20 +917,29 @@ def render_maze_weave(cells, connections, bridges, solution_path, rows, cols,
                 f'stroke-width="{width:.1f}" stroke-linecap="{cap}" '
                 f'stroke-linejoin="{join}"/>\n')
 
+    if show_solution and solution_path:
+        segs = _weave_solution_layers(solution_path, center, r)
+        ground_pts = [pts for tag, pts in segs if tag == 'ground']
+        elevated_pts = [pts for tag, pts in segs if tag == 'elevated']
+    else:
+        ground_pts, elevated_pts = [], []
+
     # Capa 1 (inferior): todo el negro (muros) antes que todo el blanco (camino).
     svg += stroke(layer0_k, outer, MAZE_WALL_COLOR, 'butt')   # muros
     svg += stroke(layer0_w, inner, '#ffffff', 'butt')         # camino libre
-    # Capa 2 (superior): pasos ELEVADOS. Aquí 'butt' en ambos: el negro debe cubrir
-    # SOLO la celda saltada, sin invadir los pasillos de p1/p2.
-    svg += stroke(layer1, outer, MAZE_WALL_COLOR, 'butt')
+    # Solución de SUELO: se dibuja aquí (antes de los puentes) para que un
+    # puente que cruce por encima la oculte, en vez de montarse sobre él.
+    for pts in ground_pts:
+        svg += _pipe_solution(pts, sw=WEAVE_SOLUTION_STROKE)
+    # Capa 2 (superior): pasos ELEVADOS. El fondo negro del grupo tapa TODO el
+    # tramo (incluye lo que asomaba en los huecos de pared); encima, el tubo
+    # blanco de cada puente individual (más angosto, deja ver el muro del
+    # fondo negro entre puentes vecinos).
+    svg += stroke(masks, S, MAZE_WALL_COLOR, 'butt')
     svg += stroke(layer1, inner, '#ffffff', 'butt')
-
-    if show_solution and solution_path:
-        pts = [center(cell) for cell in solution_path]
-        # Prolongar entrada/salida hasta cruzar el borde.
-        pts.insert(0, (pts[0][0] - r, pts[0][1]))
-        pts.append((pts[-1][0] + r, pts[-1][1]))
-        svg += _pipe_solution(pts)
+    # Solución ELEVADA: se dibuja al final, sobre el tubo del puente.
+    for pts in elevated_pts:
+        svg += _pipe_solution(pts, sw=WEAVE_SOLUTION_STROKE)
 
     svg += _svg_footer()
     return svg

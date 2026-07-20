@@ -61,6 +61,24 @@ def test_rect_maze_trenzado_reduce_callejones():
     assert count_dead_ends(grid_kids) < count_dead_ends(grid_hard)
 
 
+def test_rect_maze_dificultad_escala_con_ruta():
+    """La dificultad no es solo el tamaño de la plantilla: a más difícil, la
+    ruta correcta debe recorrer una fracción MAYOR del tablero (más cruces de
+    tablero, no solo más callejones). Se promedian varias muestras porque la
+    generación es aleatoria; los rangos no deben solaparse entre niveles."""
+    rows, cols = 12, 12
+
+    def avg_route(diff, n=6):
+        vals = []
+        for _ in range(n):
+            grid, sol = M.generate_rectangular_maze(rows, cols, diff)
+            vals.append(sum(1 for r, c in sol if r % 2 == 1 and c % 2 == 1) / (rows * cols))
+        return sum(vals) / n
+
+    r_kids, r_easy, r_medium, r_hard = (avg_route(d) for d in ('kids', 'easy', 'medium', 'hard'))
+    assert r_kids < r_easy < r_medium < r_hard
+
+
 def test_rect_maze_render_svg():
     grid, sol_path = M.generate_rectangular_maze(8, 8, 'medium')
     puzzle_svg = R.render_maze_rect(grid, sol_path, 'flat', 2.0, False, 20)
@@ -118,6 +136,20 @@ def test_hex_maze_trenzado_reduce_callejones():
     cells_h, conn_h, _, _ = M.generate_hexagonal_maze(rows, cols, 'hard')
     cells_k, conn_k, _, _ = M.generate_hexagonal_maze(rows, cols, 'kids')
     assert count_dead_ends(cells_k, conn_k) < count_dead_ends(cells_h, conn_h)
+
+
+def test_hex_maze_dificultad_escala_con_ruta():
+    rows, cols = 10, 10
+
+    def avg_route(diff, n=6):
+        vals = []
+        for _ in range(n):
+            cells, _, _, sol = M.generate_hexagonal_maze(rows, cols, diff)
+            vals.append(len(sol) / len(cells))
+        return sum(vals) / n
+
+    r_kids, r_easy, r_medium, r_hard = (avg_route(d) for d in ('kids', 'easy', 'medium', 'hard'))
+    assert r_kids < r_easy < r_medium < r_hard
 
 
 def test_hex_maze_render_svg():
@@ -199,6 +231,20 @@ def test_circular_maze_trenzado_reduce_callejones():
     assert count_dead_ends(cells_k, sc_k, conn_k) < count_dead_ends(cells_h, sc_h, conn_h)
 
 
+def test_circular_maze_dificultad_escala_con_ruta():
+    rings = 6
+
+    def avg_route(diff, n=6):
+        vals = []
+        for _ in range(n):
+            cells, _, _, _, sol = M.generate_circular_maze(rings, difficulty=diff)
+            vals.append(len(sol) / len(cells))
+        return sum(vals) / n
+
+    r_kids, r_easy, r_medium, r_hard = (avg_route(d) for d in ('kids', 'easy', 'medium', 'hard'))
+    assert r_kids < r_easy < r_medium < r_hard
+
+
 def test_circular_maze_render_svg():
     cells, sector_counts, connections, walls, sol_path = M.generate_circular_maze(5, difficulty='medium')
     puzzle_svg = R.render_maze_circular(cells, sector_counts, connections, walls, sol_path, 'flat', 1.5, False)
@@ -260,6 +306,20 @@ def test_tri_maze_trenzado_reduce_callejones():
     assert count_dead_ends(cells_k, conn_k, sz) < count_dead_ends(cells_h, conn_h, sz)
 
 
+def test_tri_maze_dificultad_escala_con_ruta():
+    size = 10
+
+    def avg_route(diff, n=6):
+        vals = []
+        for _ in range(n):
+            cells, _, _, sol, _, _ = M.generate_triangular_maze(size, diff)
+            vals.append(len(sol) / len(cells))
+        return sum(vals) / n
+
+    r_kids, r_easy, r_medium, r_hard = (avg_route(d) for d in ('kids', 'easy', 'medium', 'hard'))
+    assert r_kids < r_easy < r_medium < r_hard
+
+
 def test_tri_maze_render_svg():
     cells, connections, walls, sol_path, sz, _ = M.generate_triangular_maze(8, 'medium')
     puzzle_svg = R.render_maze_tri(cells, connections, walls, sol_path, sz, sz, 'flat', 1.5, False)
@@ -293,6 +353,20 @@ def test_tri_sq_maze_conectividad(difficulty):
     assert sol_path
     assert sol_path[0] == (0, 0)
     assert sol_path[-1] == (rows - 1, cols - 1)
+
+
+def test_tri_sq_maze_dificultad_escala_con_ruta():
+    rows, cols = 10, 20
+
+    def avg_route(diff, n=6):
+        vals = []
+        for _ in range(n):
+            cells, _, _, sol, _, _ = M.generate_triangular_sq_maze(rows, cols, diff)
+            vals.append(len(sol) / len(cells))
+        return sum(vals) / n
+
+    r_kids, r_easy, r_medium, r_hard = (avg_route(d) for d in ('kids', 'easy', 'medium', 'hard'))
+    assert r_kids < r_easy < r_medium < r_hard
 
 
 def test_tri_sq_maze_render_svg():
