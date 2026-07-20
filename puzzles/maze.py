@@ -238,13 +238,6 @@ def _hex_maze_once(rows, cols, difficulty='medium'):
     return cells, list(connections), walls, solution_path
 
 
-def tri_orientation(r, c):
-    """En la malla en forma de triángulo equilátero, la celda (r, c) apunta
-    hacia arriba ('up', base abajo) si c es par, y hacia abajo ('down', base
-    arriba) si c es impar. La fila r tiene 2·r+1 celdas (c = 0 … 2·r)."""
-    return 'up' if c % 2 == 0 else 'down'
-
-
 def tri_neighbors(r, c, size):
     """3 vecinos de una celda triangular dentro del triángulo equilátero de
     lado `size` filas: izquierda/derecha en la misma fila, y el vecino vertical

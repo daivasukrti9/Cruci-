@@ -283,13 +283,6 @@ def test_tri_maze_conectividad(difficulty):
     assert sol_path[-1] == (size - 1, 2*(size - 1))
 
 
-def test_tri_maze_orientacion_por_columna():
-    # En el triángulo equilátero, la orientación depende de la paridad de c.
-    for r, c in [(0, 0), (1, 0), (1, 1), (2, 3), (3, 4)]:
-        expected = 'up' if c % 2 == 0 else 'down'
-        assert M.tri_orientation(r, c) == expected
-
-
 def test_tri_maze_trenzado_reduce_callejones():
     def count_dead_ends(cells, connections, size):
         conn_set = set(connections)

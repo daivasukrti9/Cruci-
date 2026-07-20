@@ -53,11 +53,6 @@ def _text(x, y, content, font, size, bold=False, color='#000000', anchor='middle
             f'text-anchor="{anchor}" dominant-baseline="central">{content}</text>\n')
 
 
-def _dash(x1, y1, x2, y2, color, sw=1.4):
-    return (f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" '
-            f'stroke="{color}" stroke-width="{sw}" stroke-dasharray="4,3"/>\n')
-
-
 def _cage_line(x1, y1, x2, y2, color='#888888', sw=1.0):
     """Línea gris fina para marcar jaulas de cálculo (más delgada que el borde negro)."""
     return (f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" '
@@ -66,8 +61,8 @@ def _cage_line(x1, y1, x2, y2, color='#888888', sw=1.0):
 
 # ─── LABERINTOS: estilo homogéneo de paredes ────────────────────────────────
 # Paredes finas negras de grosor UNIFORME en todos los laberintos (para
-# armonizar la familia), solución en rojo del mismo grosor, y remache circular
-# para marcar los cruces de puente.
+# armonizar la familia) y solución en rojo del mismo grosor. El Puente (weave)
+# usa su propio estilo de tubo/cinta (ver render_maze_weave).
 MAZE_WALL_COLOR = '#000000'
 MAZE_SOLUTION_COLOR = '#e63232'
 MAZE_WALL_STROKE = 2.6        # grosor único de pared para TODOS los laberintos
@@ -109,13 +104,6 @@ def _tri_solution_points(path, cell_geom):
     render según dónde abra su borde."""
     return [m for i in range(len(path)-1)
             if (m := _tri_edge_mid(path[i], path[i+1], cell_geom)) is not None]
-
-
-def _bridge_rivet(cx, cy, r):
-    """Marcador circular ("remache") sobre una celda-puente: indica el cruce
-    elevado donde un pasillo pasa por encima/debajo de otro sin tocarlo."""
-    return (f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" fill="#ffffff" '
-            f'stroke="{MAZE_WALL_COLOR}" stroke-width="{max(1.5, r*0.35):.1f}"/>\n')
 
 
 def _ineq_symbol(op, vertical):
@@ -1313,41 +1301,6 @@ def render_maze_circular(all_cells, sector_counts, connections, walls, solution_
             amid = (a1 + a2) / 2
             pts.append((cx + R * math.cos(amid), cy + R * math.sin(amid)))
         svg += _pipe_solution(pts)
-
-    svg += _svg_footer()
-    return svg
-
-
-# ─── SOLUCIÓN GENÉRICA EN TABLA (MUY DIFERENTE AL DISEÑO) ───────────────────
-
-def render_solution_table(data, title='SOLUCIÓN', cols=1):
-    """Renderiza solución en formato tabla clara y simple."""
-    W, H = 800, 600
-    svg = _svg_header(W, H)
-    svg += f'<text x="400" y="30" font-family="Arial" font-size="18" font-weight="bold" text-anchor="middle">— {title} —</text>\n'
-
-    x, y = 40, 70
-    col_width = (W - 80) // cols
-    line_height = 24
-
-    if isinstance(data, dict):
-        items = [(str(k), str(v)) for k, v in data.items()]
-    elif isinstance(data, list):
-        items = [(str(i+1), str(v)) for i, v in enumerate(data)]
-    else:
-        items = [(str(data))]
-
-    for idx, (key, val) in enumerate(items):
-        col = idx % cols
-        row = idx // cols
-        curr_x = x + col * col_width
-        curr_y = y + row * line_height
-
-        # Caja con fondo alterno
-        bg = '#f5f5f5' if row % 2 == 0 else '#ffffff'
-        svg += f'<rect x="{curr_x-5}" y="{curr_y-15}" width="{col_width-10}" height="20" fill="{bg}" stroke="#ddd" stroke-width="0.5"/>\n'
-
-        svg += _text(curr_x, curr_y, f'{key}: {val}', 'Courier', 11, color='#000', anchor='start')
 
     svg += _svg_footer()
     return svg
