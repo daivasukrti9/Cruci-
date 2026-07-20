@@ -6,7 +6,26 @@ Fuente: "Correcciones aplicacion Cruci.txt" + referencia `Diseños/Crucigramas L
 
 ## ▶️ PUNTO DE CONTINUACIÓN (leer primero al abrir sesión nueva)
 
-**Última actualización:** 2026-07-20 · Último commit previo: `80d62b6`.
+**Última actualización:** 2026-07-20 · Último commit previo: `3ee0398`.
+
+**Puente Circular arreglado (2026-07-20):** el modo `corner='round'` construía
+arcos SVG ('A') a mano con radio r=S/2, casi igual a la mitad del grosor del
+tubo — el borde INTERIOR de la curva casi tocaba el centro de curvatura (radio
+interior ≈ 1.3px en producción) y el trazado degeneraba en fragmentos rotos
+("comas"), no en curvas limpias (el "esferas" que reportó el usuario era en
+realidad esto, no bolas). Comprobado con SVG aislado: el mismo trazado recto
+de 'sharp' (M borde L centro L borde) con `stroke-linejoin="round"` NATIVO de
+SVG da una curva perfecta, con el mismo ancho de tubo que 'sharp' (90%) — sin
+necesidad de arcos manuales. Se eliminó el bloque de arcos completo de
+`_corridor_paths` (simplificación neta: sharp y round comparten TODA la
+geometría, solo cambia `stroke-linejoin`/`shape-rendering`). `crispEdges`
+sigue limitado a 'sharp' (arruinaría las curvas nativas de 'round'); se
+verificó que 'round' no muestra la costura gris en los cruces de puente sin
+necesitarlo. Test actualizado (`test_round_weave_render_corner_round`): ya no
+busca comando 'A', verifica `stroke-linejoin="round"` en su lugar.
+Verificado: 95 tests + smoke test end-to-end (`maze_round_weave`, 3
+tamaños × 4 dificultades) + inspección visual en varias semillas (incluida la
+semilla con mucho trenzado que antes mostraba el problema).
 
 **Rediseño de dificultad para TODOS los laberintos + arreglos visuales del Puente (2026-07-20):**
 - ✅ **Tabla de dificultad para rect/hex/triangular/triangular-cuadrado/circular** — tenían el
@@ -34,9 +53,8 @@ Fuente: "Correcciones aplicacion Cruci.txt" + referencia `Diseños/Crucigramas L
   plantilla. Corregido con `shape-rendering="crispEdges"` (SOLO en `corner='sharp'`, ya
   que el laberinto de puentes es 100% ortogonal; `round` conserva antialiasing por sus
   arcos — pendiente de revisión aparte).
-- ⬜ **Pendiente: Laberinto de Puente Circular (`corner='round'`)** — hereda el motor de
-  casing y la tabla de dificultad, pero aún tiene las "esferas"/bolas en extremos y
-  uniones curvas; falta aplicarle el mismo criterio con arcos de 90°.
+- ✅ **Laberinto de Puente Circular (`corner='round'`)** — arreglado, ver entrada de
+  arriba ("Puente Circular arreglado").
 
 **Ronda de correcciones adicionales (reporte del usuario, 2026-07-18) — HECHAS:**
 - ✅ **#1 KenKen** — tamaños 9×9 y 12×12 (catálogo + clamp `app.py`).

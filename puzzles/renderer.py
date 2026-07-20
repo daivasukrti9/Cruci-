@@ -677,9 +677,15 @@ def render_maze_tri_sq(cells, connections, walls, solution_path, rows, cols,
 # `corner='sharp'` da esquinas rectas (Bridge); `corner='round'` da curvas de
 # 90° (Round Bridge). Las paredes son el negro que queda entre pasillos.
 
-def _corridor_paths(cx, cy, dirs, r, corner, tip=0.0):
+def _corridor_paths(cx, cy, dirs, r, tip=0.0):
     """Segmentos SVG (d-strings) del pasillo de una celda hacia sus direcciones
-    conectadas. En 'round', un pasillo en L se dibuja como arco de 90°."""
+    conectadas. En 'round' los giros salen curvos SOLO por el `stroke-linejoin
+    ="round"` nativo de SVG sobre el mismo trazado recto que 'sharp' (ver
+    `join` en `render_maze_weave`) — NO se construyen arcos ('A') a mano.
+    Un arco manual con radio r=S/2 y un tubo casi tan ancho como r hace que el
+    borde INTERIOR de la curva casi toque el centro de curvatura (radio
+    interior ≈ 0), y el trazo degenera en una "coma" rota en vez de una curva
+    limpia. El linejoin nativo del navegador no tiene ese problema."""
     ends = {'N': (cx, cy - r), 'S': (cx, cy + r),
             'W': (cx - r, cy), 'E': (cx + r, cy)}
     opp = {'N': 'S', 'S': 'N', 'W': 'E', 'E': 'W'}
@@ -701,21 +707,8 @@ def _corridor_paths(cx, cy, dirs, r, corner, tip=0.0):
             fx += ux / n * tip
             fy += uy / n * tip
         return [f'M {ex:.1f} {ey:.1f} L {fx:.1f} {fy:.1f}']
-    if corner == 'round' and len(dset) == 2:
-        if dset == {'N', 'S'}:
-            return [f'M {cx:.1f} {cy-r:.1f} L {cx:.1f} {cy+r:.1f}']
-        if dset == {'E', 'W'}:
-            return [f'M {cx-r:.1f} {cy:.1f} L {cx+r:.1f} {cy:.1f}']
-        arc = {
-            frozenset({'N', 'E'}): f'M {cx:.1f} {cy-r:.1f} A {r:.1f} {r:.1f} 0 0 1 {cx+r:.1f} {cy:.1f}',
-            frozenset({'E', 'S'}): f'M {cx+r:.1f} {cy:.1f} A {r:.1f} {r:.1f} 0 0 1 {cx:.1f} {cy+r:.1f}',
-            frozenset({'S', 'W'}): f'M {cx:.1f} {cy+r:.1f} A {r:.1f} {r:.1f} 0 0 1 {cx-r:.1f} {cy:.1f}',
-            frozenset({'W', 'N'}): f'M {cx-r:.1f} {cy:.1f} A {r:.1f} {r:.1f} 0 0 1 {cx:.1f} {cy-r:.1f}',
-        }.get(frozenset(dset))
-        if arc:
-            return [arc]
-    # Trazos CONECTADOS (no radios sueltos): así el 'miter' cierra las esquinas
-    # sin muescas y no quedan extremos encimados.
+    # Trazos CONECTADOS (no radios sueltos): así el 'miter'/'round' cierra las
+    # esquinas sin muescas y no quedan extremos encimados.
     paths = []
     rest = set(dset)
     for a, b in (('N', 'S'), ('W', 'E')):
@@ -869,8 +862,8 @@ def render_maze_weave(cells, connections, bridges, solution_path, rows, cols,
     for cell in cells:
         cx, cy = center(cell)
         ds = cell_dirs(cell)
-        layer0_k += _corridor_paths(cx, cy, ds, r, corner, tip=wall)
-        layer0_w += _corridor_paths(cx, cy, ds, r, corner)
+        layer0_k += _corridor_paths(cx, cy, ds, r, tip=wall)
+        layer0_w += _corridor_paths(cx, cy, ds, r)
 
 
     # Capa superior: SOLO el tramo que cruza la celda saltada (de borde a borde).

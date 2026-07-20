@@ -464,7 +464,13 @@ def test_round_weave_render_corner_round():
                                  'flat', 2.0, False, corner='round')
     ET.fromstring(sharp)
     ET.fromstring(roundd)
-    # El estilo redondeado introduce arcos (comando 'A' en los paths).
-    assert ' A ' in roundd
+    # El estilo redondeado NO usa arcos ('A') a mano: un arco manual con radio
+    # r=S/2 y un tubo casi tan ancho como r degenera en una "coma" rota (el
+    # borde interior de la curva casi toca el centro de curvatura). Los giros
+    # de 90° salen curvos por el stroke-linejoin="round" NATIVO de SVG sobre
+    # el mismo trazado recto que 'sharp' (que usa 'miter').
+    assert ' A ' not in roundd
+    assert 'stroke-linejoin="round"' in roundd
+    assert 'stroke-linejoin="miter"' in sharp
     # Ambos renders usan el modelo de corredores (relleno blanco sobre negro).
     assert 'stroke="#ffffff"' in sharp and 'stroke="#ffffff"' in roundd
