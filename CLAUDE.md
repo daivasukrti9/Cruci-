@@ -24,6 +24,11 @@ crucigramas, lógica) y los exporta como SVG/PNG/PDF listos para Amazon KDP.
 Las reglas generales (edición mínima invasiva, Git como red, análisis de impacto,
 idioma) están en el `CLAUDE.md` global. Aquí solo lo propio de Cruci:
 
+Para revisión visual de la UI web (no del SVG de los puzzles en sí, eso lo
+cubren los `tests/` de reglas) usar el subagente `frontend-designer`
+(`daRevelation/.claude/agents/frontend-designer.md`) — ver
+`_global/skills-registry.md` para el arsenal disponible y su valoración.
+
 1. **Tests con pytest.** Antes y después de un cambio en `puzzles/`, corre:
    `python -m pytest`. Si tocas una familia de puzzle, corre al menos su test.
    Baseline en git = commit `95eebab` (estado funcional de partida).
