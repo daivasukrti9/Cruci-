@@ -8,6 +8,38 @@ Fuente: "Correcciones aplicacion Cruci.txt" + referencia `Diseños/Crucigramas L
 
 **Última actualización:** 2026-07-20 · Último commit previo: `3ee0398`.
 
+**Nueva fase acordada (2026-07-20) — Formato de libro / colección / producción:**
+Respuestas del usuario a la propuesta de etapas para esta fase (no confundir con las
+Fases A-F de puzzles, ya cerradas):
+
+1. **Etapa 1 (generación de puzzles)** — funciona perfecto, sin acción.
+2. **Etapa 2 (estilos isométricos + paleta)** — agregar al menú 4 variantes de
+   proyección isométrica: página izquierda = Oeste-Norte-arriba y Oeste-Sur-abajo;
+   página derecha = Este-Norte-arriba y Este-Sur-abajo. Hoy `renderer.py` solo tiene
+   un modo `'isometric'` fijo (línea ~19) — hay que parametrizar la dirección de
+   proyección y exponer las 4 opciones en `static/app.js`. Paleta de colores por
+   colección temática: se define recién al cerrar Etapa 3 (queda en espera).
+3. **Etapa 3 (formato de libro KDP)** — guía completa en
+   `C:\Users\Maximiliano Marinero\OneDrive\Escritorio\Algoritmo formato libro.txt`:
+   tamaño 8.5"×11" base, márgenes espejo por página par/impar, capítulos de 4 páginas
+   con densidad progresiva (calentamiento → medio → gran reto → test), tipografía
+   monoespaciada en grillas, interior B&N con color solo en portada (portada-por-color
+   = colección temática, conecta con la paleta de Etapa 2).
+4. **Estructura de trabajo nueva (carpetas)** — separar "generación de puzzles" de
+   "maquetación de libro": Carpeta A = juegos aprobados + sus soluciones (material
+   curado por el usuario); Carpeta B = páginas finales generadas fusionando material
+   de A con el algoritmo de diseño de Etapa 3. Pendiente al retomar: definir el
+   formato del artefacto en Carpeta A (¿SVG + JSON de metadata? ¿PDF por puzzle?),
+   de eso depende cómo el algoritmo de Etapa 3 los lea y componga. `app.py` hoy solo
+   cachea en memoria — no existe todavía un paso de "aprobación" persistente.
+5. **Diseño de producción y carpetas conectado a Google Drive** — decidido: **carpeta
+   local sincronizada** (Google Drive Desktop), no integración por API. Las carpetas
+   A y B viven físicamente dentro de la carpeta local que sincroniza Google Drive
+   Desktop en la máquina del usuario; el algoritmo solo lee/escribe rutas locales
+   normales, Drive se encarga de sync/backup/compartición por su cuenta — sin
+   credenciales OAuth ni dependencias nuevas en el proyecto. Pendiente al retomar:
+   definir la ruta exacta de esa carpeta sincronizada.
+
 **Puente Circular arreglado (2026-07-20):** el modo `corner='round'` construía
 arcos SVG ('A') a mano con radio r=S/2, casi igual a la mitad del grosor del
 tubo — el borde INTERIOR de la curva casi tocaba el centro de curvatura (radio
@@ -28,6 +60,7 @@ tamaños × 4 dificultades) + inspección visual en varias semillas (incluida la
 semilla con mucho trenzado que antes mostraba el problema).
 
 **Rediseño de dificultad para TODOS los laberintos + arreglos visuales del Puente (2026-07-20):**
+
 - ✅ **Tabla de dificultad para rect/hex/triangular/triangular-cuadrado/circular** — tenían el
   mismo problema que weave (ver abajo): solo controlaban trenzado, sin objetivo de ruta.
   Medido: rectangular medium>hard invertido (43%/47% casi iguales), hexagonal y circular
@@ -57,6 +90,7 @@ semilla con mucho trenzado que antes mostraba el problema).
   arriba ("Puente Circular arreglado").
 
 **Ronda de correcciones adicionales (reporte del usuario, 2026-07-18) — HECHAS:**
+
 - ✅ **#1 KenKen** — tamaños 9×9 y 12×12 (catálogo + clamp `app.py`).
 - ✅ **#2 Futoshiki** — tamaños 8/9/10/12; signos `>` `<` sin negrita; solución solo
   con los números faltantes en negrita (esto último ya estaba correcto).
@@ -78,6 +112,7 @@ semilla con mucho trenzado que antes mostraba el problema).
   coloca el primer candidato elegible). Validado: 500 muestras/dificultad, mínimo ≥1.
 
 **Rediseño del Laberinto de Puentes (2026-07-20):**
+
 - ✅ **Render "casing/cinta"**: cada pasillo es un trazo NEGRO grueso (muros) con un
   trazo BLANCO opaco encima (camino). Tubo al 90% de la celda (10% de separación).
   Capas: todo el negro → todo el blanco → puente elevado (negro → blanco).
@@ -101,6 +136,7 @@ semilla con mucho trenzado que antes mostraba el problema).
   con arcos de 90°.
 
 **Estado global:**
+
 - ✅ **Fase A, B, C** — hechas.
 - ✅ **Fase D (Hashi, Masyu, Akari)** — generadores válidos, tamaños puestos,
   diseño estilo KenKen, y **dificultad diferenciada** (rangos amplios, Masyu corregido).
@@ -148,6 +184,7 @@ semilla con mucho trenzado que antes mostraba el problema).
     y las 4 dificultades. Suite completa: **90 tests en verde**.
 
 **Lo que falta (en orden):**
+
 1. **Formato/tamaño KDP final** — aplazado a lo último por decisión del usuario
    (KDP ya validado y soportado en `exporter.py`: 6x9/8.5x11/7x10, bleed, márgenes espejo, 300 DPI).
 2. **(Opcional, recomendado) Solver + unicidad + rating de dificultad** para juegos lógicos
@@ -155,11 +192,13 @@ semilla con mucho trenzado que antes mostraba el problema).
    difíciles muy escasos pueden no tener solución única. La solución impresa siempre es válida.
 
 **Cómo arrancar la sesión nueva:**
+
 1. Leer este bloque + `CLAUDE.md` (reglas) + `git log --oneline -6`.
-2. Servidor: `iniciar.bat` → http://localhost:5000 · Tests: `python -m pytest` (90 en verde).
+2. Servidor: `iniciar.bat` → <http://localhost:1771> · Tests: `python -m pytest` (90 en verde).
 3. El usuario lidera la revisión: esperar su reporte/material de referencia antes de empezar una fase.
 
 **Decisiones acordadas (2026-07-11):**
+
 - Estilos visuales: quitar solo **Geométrico**; conservar Plano + Isométrico.
 - Nivel **Kids / muy fácil**: solo en laberintos.
 - Laberintos (Fase F): al final, tras el resto.
@@ -169,6 +208,7 @@ Leyenda estado: ⬜ pendiente · 🟦 en progreso · ✅ hecho
 ---
 
 ## FASE A — Global (menú + formato de soluciones) ✅
+
 - ✅ **1b** Quitar estilo "Geométrico/Origami" del menú. (commit b4717b7)
 - ✅ **1c** Quitar "Grosor de línea (pt)"; grosor estándar único. (commit b4717b7)
 - ✅ **1a+3** Soluciones sobre la MISMA plantilla: sombrear solo pistas, respuestas
@@ -177,6 +217,7 @@ Leyenda estado: ⬜ pendiente · 🟦 en progreso · ✅ hecho
   fases (6,7,13,14,15+) con sus casos especiales.
 
 ## Feedback post-Fase B ✅ (commit 0a74d4e, d764716)
+
 - ✅ **Variedad infinita**: quitado el caché; cada "Generar" da un puzzle nuevo.
 - ✅ **Jigsaw sin rectángulos (9×9 y letras)**: se rechaza TODO rectángulo (cuadrados
   y barras). jigsaw 9×9 = 100% sin rectángulo, letras = 95%. (commit d764716)
@@ -190,6 +231,7 @@ Leyenda estado: ⬜ pendiente · 🟦 en progreso · ✅ hecho
   sirve en 9×9 pero no escala a 12×12), backbite (serpientes irresolubles).
 
 ## FASE B — Familia Sudoku ✅ (commit 5b94866)
+
 - ✅ **2** Asesino: jaulas con contorno punteado inset + suma; visibles en puzzle y
   solución. Solución sin sombreado. Plantilla trasladada a la solución.
 - ✅ **2b (X)** Sudoku X: se sombrean solo las diagonales (sin líneas X trazadas);
@@ -199,6 +241,7 @@ Leyenda estado: ⬜ pendiente · 🟦 en progreso · ✅ hecho
   plantilla con regiones. Cuadrícula interna fina + regiones/borde gruesos.
 
 ## FASE C — Lógica / aritmética ✅ (commits a108da5, 159ecd7, de1d058)
+
 - ✅ **6** KenKen: jaulas con línea gris fina inset (más delgada que el borde negro);
   operaciones con símbolos propios (× ÷); solución sobre la misma plantilla.
 - ✅ **7** Futoshiki: pistas dadas en gris, respuestas en negro/negrita; misma plantilla.
@@ -210,6 +253,7 @@ Leyenda estado: ⬜ pendiente · 🟦 en progreso · ✅ hecho
   Nota: el nº de islas sale alto (~18-24); ajustable si se quiere menos denso.
 
 ## FASE D — Redes / bucles ✅ (commits 0bd3ee1, 68576ea, 19e67eb)
+
 - ✅ **9** Hashi: generador válido (grafo conexo, puentes sin cruces); cuadrícula gris,
   islas en cuadros redondeados, solución con puentes dobles. Tamaños 20×14, 18×25.
 - ✅ **10** Masyu: generador válido (bucle orgánico vía backbite + perlas correctas);
@@ -219,12 +263,14 @@ Leyenda estado: ⬜ pendiente · 🟦 en progreso · ✅ hecho
 - Nota KDP: formato/tamaños finales al cierre (el usuario ajusta luego).
 
 ## FASE E — Palabras ✅
+
 - ✅ **13** Crucigrama: solución rellena casillas con las palabras (misma plantilla,
   letras en negrita).
 - ✅ **14** Sopa de letras: solución sobre plantilla (casillas negras + letras blancas);
   dificultad fácil=H/V, medio=H/V ambos sentidos, difícil=+diagonales ambos sentidos.
 
 ## FASE F — Laberintos ✅
+
 - ✅ **15** Rectangular: paredes/líneas (DFS backtracker, matriz de paredes); solución
   línea gruesa; nivel kids+fácil+medio+difícil (trenzado/braid).
 - ✅ **16** Hexagonal: rediseño (coords axiales q,r; 6 vecinos; Kruskal).

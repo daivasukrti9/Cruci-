@@ -115,23 +115,32 @@ def _ineq_symbol(op, vertical):
     return '&lt;' if op == '<' else '&gt;'
 
 
-def _iso_box(x, y, w, h, depth, fill, shade, stroke, sw):
-    """Draw an isometric-style box (flat top with right and bottom faces)."""
+ISO_DIRECTIONS = {
+    # (sx, sy): sx=+1 hacia Este/-1 hacia Oeste, sy=+1 Sur-abajo/-1 Norte-arriba.
+    'no': (-1, -1),  # Oeste-Norte-arriba (página izquierda)
+    'so': (-1, +1),  # Oeste-Sur-abajo    (página izquierda)
+    'ne': (+1, -1),  # Este-Norte-arriba  (página derecha)
+    'se': (+1, +1),  # Este-Sur-abajo     (página derecha, comportamiento original)
+}
+
+
+def _iso_box(x, y, w, h, depth, fill, shade, stroke, sw, direction='se'):
+    """Draw an isometric-style box (flat top + dos caras de sombra hacia `direction`)."""
+    sx, sy = ISO_DIRECTIONS.get(direction, ISO_DIRECTIONS['se'])
     svg = ''
     # Top face
     svg += (f'<rect x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
             f'fill="{fill}" stroke="{stroke}" stroke-width="{sw}"/>\n')
-    # Right shadow face
-    rx = x + w
-    ry = y + depth
-    svg += (f'<polygon points="{rx:.1f},{y:.1f} {rx+depth:.1f},{y+depth:.1f} '
-            f'{rx+depth:.1f},{y+h+depth:.1f} {rx:.1f},{y+h:.1f}" '
+    # Cara vertical (Este/Oeste), pegada al borde x del lado elegido
+    rx = x + w if sx > 0 else x
+    svg += (f'<polygon points="{rx:.1f},{y:.1f} {rx+depth*sx:.1f},{y+depth*sy:.1f} '
+            f'{rx+depth*sx:.1f},{y+h+depth*sy:.1f} {rx:.1f},{y+h:.1f}" '
             f'fill="{shade}" stroke="{stroke}" stroke-width="{sw}"/>\n')
-    # Bottom shadow face
-    bx = x + depth
-    by = y + h
-    svg += (f'<polygon points="{x:.1f},{by:.1f} {bx:.1f},{by+depth:.1f} '
-            f'{x+w+depth:.1f},{by+depth:.1f} {x+w:.1f},{by:.1f}" '
+    # Cara horizontal (Norte/Sur), pegada al borde y del lado elegido
+    bx = x + depth * sx
+    by = y + h if sy > 0 else y
+    svg += (f'<polygon points="{x:.1f},{by:.1f} {bx:.1f},{by+depth*sy:.1f} '
+            f'{x+w+depth*sx:.1f},{by+depth*sy:.1f} {x+w:.1f},{by:.1f}" '
             f'fill="{shade}" stroke="{stroke}" stroke-width="{sw}"/>\n')
     return svg
 
@@ -140,7 +149,7 @@ def _iso_box(x, y, w, h, depth, fill, shade, stroke, sw):
 
 def render_sudoku(puzzle, solution, size=9, style='flat', stroke_width=1.5,
                   show_solution=False, regions=None, diagonals=False,
-                  cages=None, is_letters=False):
+                  cages=None, is_letters=False, iso_dir='se'):
     """
     Renderiza un Sudoku (puzzle o solución) como SVG.
 
@@ -191,7 +200,8 @@ def render_sudoku(puzzle, solution, size=9, style='flat', stroke_width=1.5,
 
             if st['iso']:
                 svg += _iso_box(x, y, cell, cell, depth // 2,
-                                 fill, st['iso_shade'], st['stroke'], st['stroke_width'])
+                                 fill, st['iso_shade'], st['stroke'], st['stroke_width'],
+                                 direction=iso_dir)
             else:
                 svg += _rect(x, y, cell, cell, fill, grid_color, st['stroke_width'])
 

@@ -6,7 +6,7 @@ crucigramas, lógica) y los exporta como SVG/PNG/PDF listos para Amazon KDP.
 ## Cómo arrancar
 
 - Python: `C:\Users\Maximiliano Marinero\AppData\Local\Programs\Python\Python313\python.exe`
-- Arranque: `iniciar.bat` o el python de arriba con `app.py` → http://localhost:5000
+- Arranque: `iniciar.bat` o el python de arriba con `app.py` → <http://localhost:1771>
 - Tras editar código de puzzles, **reiniciar el servidor** para que tome los cambios.
 
 ## Estructura

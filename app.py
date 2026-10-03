@@ -37,6 +37,7 @@ def api_generate():
     data = request.json
     puzzle_id  = data.get('puzzle_id', 'sudoku_classic')
     style      = data.get('style', 'flat')
+    iso_dir    = data.get('iso_dir', 'se')
     difficulty = data.get('difficulty', 'medium')
     stroke_w   = float(data.get('stroke_width', 1.5))
     size_param = data.get('size', 9)
@@ -44,20 +45,20 @@ def api_generate():
     clues      = [c.strip() for c in data.get('clues', '').split('\n') if c.strip()]
 
     try:
-        result = _generate(puzzle_id, style, difficulty, stroke_w, size_param, words, clues)
+        result = _generate(puzzle_id, style, difficulty, stroke_w, size_param, words, clues, iso_dir)
         return jsonify({'ok': True, **result})
     except Exception as e:
         traceback.print_exc()
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
-def _generate(puzzle_id, style, difficulty, stroke_w, size_param, words, clues):
+def _generate(puzzle_id, style, difficulty, stroke_w, size_param, words, clues, iso_dir='se'):
     # Sin caché: cada generación produce un puzzle NUEVO (variedad infinita).
     # La generación ya es rápida y la exportación usa el SVG que el front ya tiene.
-    return _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, clues)
+    return _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, clues, iso_dir)
 
 
-def _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, clues):
+def _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, clues, iso_dir='se'):
     from puzzles import renderer as R
 
     # ── SUDOKU CLASSIC ──
@@ -65,8 +66,8 @@ def _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, cl
         from puzzles.sudoku import generate_classic
         size = int(size_param) if isinstance(size_param, (int, str)) else 9
         puzzle, solution = generate_classic(size, difficulty)
-        puzzle_svg   = R.render_sudoku(puzzle, solution, size, style, stroke_w, show_solution=False)
-        solution_svg = R.render_sudoku(puzzle, solution, size, style, stroke_w, show_solution=True)
+        puzzle_svg   = R.render_sudoku(puzzle, solution, size, style, stroke_w, show_solution=False, iso_dir=iso_dir)
+        solution_svg = R.render_sudoku(puzzle, solution, size, style, stroke_w, show_solution=True, iso_dir=iso_dir)
         return {'puzzle_svg': puzzle_svg, 'solution_svg': solution_svg,
                 'title': f'Sudoku Clásico {size}×{size}',
                 'instructions': _instr('sudoku_classic', size)}
@@ -75,8 +76,8 @@ def _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, cl
     elif puzzle_id == 'sudoku_16x16':
         from puzzles.sudoku import generate_classic
         puzzle, solution = generate_classic(16, difficulty)
-        puzzle_svg   = R.render_sudoku(puzzle, solution, 16, style, stroke_w, show_solution=False)
-        solution_svg = R.render_sudoku(puzzle, solution, 16, style, stroke_w, show_solution=True)
+        puzzle_svg   = R.render_sudoku(puzzle, solution, 16, style, stroke_w, show_solution=False, iso_dir=iso_dir)
+        solution_svg = R.render_sudoku(puzzle, solution, 16, style, stroke_w, show_solution=True, iso_dir=iso_dir)
         return {'puzzle_svg': puzzle_svg, 'solution_svg': solution_svg,
                 'title': 'Sudoku 16×16',
                 'instructions': _instr('sudoku_16x16')}
@@ -85,8 +86,8 @@ def _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, cl
     elif puzzle_id == 'sudoku_killer':
         from puzzles.sudoku import generate_killer
         puzzle, solution, cages = generate_killer(difficulty)
-        puzzle_svg   = R.render_sudoku(puzzle, solution, 9, style, stroke_w, False, cages=cages)
-        solution_svg = R.render_sudoku(puzzle, solution, 9, style, stroke_w, True, cages=cages)
+        puzzle_svg   = R.render_sudoku(puzzle, solution, 9, style, stroke_w, False, cages=cages, iso_dir=iso_dir)
+        solution_svg = R.render_sudoku(puzzle, solution, 9, style, stroke_w, True, cages=cages, iso_dir=iso_dir)
         return {'puzzle_svg': puzzle_svg, 'solution_svg': solution_svg,
                 'title': 'Sudoku Asesino',
                 'instructions': _instr('sudoku_killer')}
@@ -95,8 +96,8 @@ def _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, cl
     elif puzzle_id == 'sudoku_x':
         from puzzles.sudoku import generate_x
         puzzle, solution = generate_x(difficulty)
-        puzzle_svg   = R.render_sudoku(puzzle, solution, 9, style, stroke_w, False, diagonals=True)
-        solution_svg = R.render_sudoku(puzzle, solution, 9, style, stroke_w, True, diagonals=True)
+        puzzle_svg   = R.render_sudoku(puzzle, solution, 9, style, stroke_w, False, diagonals=True, iso_dir=iso_dir)
+        solution_svg = R.render_sudoku(puzzle, solution, 9, style, stroke_w, True, diagonals=True, iso_dir=iso_dir)
         return {'puzzle_svg': puzzle_svg, 'solution_svg': solution_svg,
                 'title': 'Sudoku X',
                 'instructions': _instr('sudoku_x')}
@@ -105,8 +106,8 @@ def _generate_impl(puzzle_id, style, difficulty, stroke_w, size_param, words, cl
     elif puzzle_id == 'sudoku_letters':
         from puzzles.sudoku import generate_letters
         puzzle, solution = generate_letters(difficulty)
-        puzzle_svg   = R.render_sudoku(puzzle, solution, 9, style, stroke_w, False, is_letters=True)
-        solution_svg = R.render_sudoku(puzzle, solution, 9, style, stroke_w, True, is_letters=True)
+        puzzle_svg   = R.render_sudoku(puzzle, solution, 9, style, stroke_w, False, is_letters=True, iso_dir=iso_dir)
+        solution_svg = R.render_sudoku(puzzle, solution, 9, style, stroke_w, True, is_letters=True, iso_dir=iso_dir)
         return {'puzzle_svg': puzzle_svg, 'solution_svg': solution_svg,
                 'title': 'Sudoku de Letras',
                 'instructions': _instr('sudoku_letters')}
@@ -487,6 +488,6 @@ def _instr(pid, size=9):
 if __name__ == '__main__':
     print("=" * 55)
     print("  KDP Puzzle Book Generator")
-    print("  http://localhost:5000")
+    print("  http://localhost:1771")
     print("=" * 55)
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=1771)
